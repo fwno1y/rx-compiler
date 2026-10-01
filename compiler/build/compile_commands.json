@@ -1,0 +1,26 @@
+[
+{
+  "directory": "/mnt/c/Users/36433/Desktop/课程作业/大二上（真）/编译器/rx-compiler/compiler/build",
+  "command": "/usr/bin/c++ -I/mnt/c/Users/36433/Desktop/课程作业/大二上（真）/编译器/rx-compiler/compiler/build/gen -I/mnt/c/Users/36433/Desktop/课程作业/大二上（真）/编译器/rx-compiler/compiler/src -isystem /usr/local/include/antlr4-runtime -O3 -DNDEBUG -std=c++17 -o CMakeFiles/rxcc.dir/src/main.cpp.o -c /mnt/c/Users/36433/Desktop/课程作业/大二上（真）/编译器/rx-compiler/compiler/src/main.cpp",
+  "file": "/mnt/c/Users/36433/Desktop/课程作业/大二上（真）/编译器/rx-compiler/compiler/src/main.cpp",
+  "output": "CMakeFiles/rxcc.dir/src/main.cpp.o"
+},
+{
+  "directory": "/mnt/c/Users/36433/Desktop/课程作业/大二上（真）/编译器/rx-compiler/compiler/build",
+  "command": "/usr/bin/c++ -I/mnt/c/Users/36433/Desktop/课程作业/大二上（真）/编译器/rx-compiler/compiler/build/gen -I/mnt/c/Users/36433/Desktop/课程作业/大二上（真）/编译器/rx-compiler/compiler/src -isystem /usr/local/include/antlr4-runtime -O3 -DNDEBUG -std=c++17 -o CMakeFiles/rxcc.dir/gen/RxLexer.cpp.o -c /mnt/c/Users/36433/Desktop/课程作业/大二上（真）/编译器/rx-compiler/compiler/build/gen/RxLexer.cpp",
+  "file": "/mnt/c/Users/36433/Desktop/课程作业/大二上（真）/编译器/rx-compiler/compiler/build/gen/RxLexer.cpp",
+  "output": "CMakeFiles/rxcc.dir/gen/RxLexer.cpp.o"
+},
+{
+  "directory": "/mnt/c/Users/36433/Desktop/课程作业/大二上（真）/编译器/rx-compiler/compiler/build",
+  "command": "/usr/bin/c++ -I/mnt/c/Users/36433/Desktop/课程作业/大二上（真）/编译器/rx-compiler/compiler/build/gen -I/mnt/c/Users/36433/Desktop/课程作业/大二上（真）/编译器/rx-compiler/compiler/src -isystem /usr/local/include/antlr4-runtime -O3 -DNDEBUG -std=c++17 -o CMakeFiles/rxcc.dir/gen/RxParser.cpp.o -c /mnt/c/Users/36433/Desktop/课程作业/大二上（真）/编译器/rx-compiler/compiler/build/gen/RxParser.cpp",
+  "file": "/mnt/c/Users/36433/Desktop/课程作业/大二上（真）/编译器/rx-compiler/compiler/build/gen/RxParser.cpp",
+  "output": "CMakeFiles/rxcc.dir/gen/RxParser.cpp.o"
+},
+{
+  "directory": "/mnt/c/Users/36433/Desktop/课程作业/大二上（真）/编译器/rx-compiler/compiler/build",
+  "command": "/usr/bin/c++ -I/mnt/c/Users/36433/Desktop/课程作业/大二上（真）/编译器/rx-compiler/compiler/build/gen -I/mnt/c/Users/36433/Desktop/课程作业/大二上（真）/编译器/rx-compiler/compiler/src -isystem /usr/local/include/antlr4-runtime -O3 -DNDEBUG -std=c++17 -o CMakeFiles/rxcc.dir/gen/RxParserBaseVisitor.cpp.o -c /mnt/c/Users/36433/Desktop/课程作业/大二上（真）/编译器/rx-compiler/compiler/build/gen/RxParserBaseVisitor.cpp",
+  "file": "/mnt/c/Users/36433/Desktop/课程作业/大二上（真）/编译器/rx-compiler/compiler/build/gen/RxParserBaseVisitor.cpp",
+  "output": "CMakeFiles/rxcc.dir/gen/RxParserBaseVisitor.cpp.o"
+}
+]

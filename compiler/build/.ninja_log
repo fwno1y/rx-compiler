@@ -1,0 +1,20 @@
+# ninja log v5
+34	1041	1790584660094587200	gen/RxLexer.cpp	a25dd8e8ca7188e6
+34	1041	1790584660094587200	gen/RxLexer.h	a25dd8e8ca7188e6
+34	1041	1790584660094587200	gen/RxParser.cpp	a25dd8e8ca7188e6
+34	1041	1790584660094587200	gen/RxParser.h	a25dd8e8ca7188e6
+34	1041	1790584660094587200	gen/RxParserBaseVisitor.cpp	a25dd8e8ca7188e6
+34	1041	1790584660094587200	gen/RxParserBaseVisitor.h	a25dd8e8ca7188e6
+34	1041	1790584660094587200	gen/RxParserVisitor.h	a25dd8e8ca7188e6
+34	1041	1790584660094587200	/mnt/c/Users/36433/Desktop/课程作业/大二上（真）/编译器/rx-compiler/compiler/build/gen/RxLexer.cpp	a25dd8e8ca7188e6
+34	1041	1790584660094587200	/mnt/c/Users/36433/Desktop/课程作业/大二上（真）/编译器/rx-compiler/compiler/build/gen/RxLexer.h	a25dd8e8ca7188e6
+34	1041	1790584660094587200	/mnt/c/Users/36433/Desktop/课程作业/大二上（真）/编译器/rx-compiler/compiler/build/gen/RxParser.cpp	a25dd8e8ca7188e6
+34	1041	1790584660094587200	/mnt/c/Users/36433/Desktop/课程作业/大二上（真）/编译器/rx-compiler/compiler/build/gen/RxParser.h	a25dd8e8ca7188e6
+34	1041	1790584660094587200	/mnt/c/Users/36433/Desktop/课程作业/大二上（真）/编译器/rx-compiler/compiler/build/gen/RxParserBaseVisitor.cpp	a25dd8e8ca7188e6
+34	1041	1790584660094587200	/mnt/c/Users/36433/Desktop/课程作业/大二上（真）/编译器/rx-compiler/compiler/build/gen/RxParserBaseVisitor.h	a25dd8e8ca7188e6
+34	1041	1790584660094587200	/mnt/c/Users/36433/Desktop/课程作业/大二上（真）/编译器/rx-compiler/compiler/build/gen/RxParserVisitor.h	a25dd8e8ca7188e6
+1063	1869	1790584661043175100	CMakeFiles/rxcc.dir/gen/RxParserBaseVisitor.cpp.o	8554db4563f69d05
+1058	1950	1790584661090236200	CMakeFiles/rxcc.dir/src/main.cpp.o	986e7dfe42b34cca
+1060	2229	1790584661442663700	CMakeFiles/rxcc.dir/gen/RxLexer.cpp.o	aee98b0a1a8438e3
+1061	7493	1790584667288023500	CMakeFiles/rxcc.dir/gen/RxParser.cpp.o	f6ceba1c46d686ca
+7494	8178	1790584668055157000	rxcc	80500bba36c95368

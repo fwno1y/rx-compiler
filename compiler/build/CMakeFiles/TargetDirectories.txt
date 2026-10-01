@@ -1,0 +1,3 @@
+/mnt/c/Users/36433/Desktop/课程作业/大二上（真）/编译器/rx-compiler/compiler/build/CMakeFiles/rxcc.dir
+/mnt/c/Users/36433/Desktop/课程作业/大二上（真）/编译器/rx-compiler/compiler/build/CMakeFiles/edit_cache.dir
+/mnt/c/Users/36433/Desktop/课程作业/大二上（真）/编译器/rx-compiler/compiler/build/CMakeFiles/rebuild_cache.dir
