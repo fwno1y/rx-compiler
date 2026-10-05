@@ -16,14 +16,16 @@ namespace rx::ast {
     struct WhereClauseItem;
     struct GenericArg;
     struct Block;
-    using TypePtr = std::unique_ptr<Type>;
-    using ExprPtr = std::unique_ptr<Expr>;
-    using StmtPtr = std::unique_ptr<Stmt>;
-    using ItemPtr = std::unique_ptr<Item>;
-    using UseTreePtr       = std::unique_ptr<UseTree>;
-    using WhereClauseItemPtr = std::unique_ptr<WhereClauseItem>;
-    using GenericArgPtr    = std::unique_ptr<GenericArg>;
-    using BlockPtr         = std::unique_ptr<Block>;
+    struct Crate;
+    using TypePtr = std::shared_ptr<Type>;
+    using ExprPtr = std::shared_ptr<Expr>;
+    using StmtPtr = std::shared_ptr<Stmt>;
+    using ItemPtr = std::shared_ptr<Item>;
+    using UseTreePtr = std::shared_ptr<UseTree>;
+    using WhereClauseItemPtr = std::shared_ptr<WhereClauseItem>;
+    using GenericArgPtr = std::shared_ptr<GenericArg>;
+    using BlockPtr = std::shared_ptr<Block>;
+    using CratePtr = std::shared_ptr<Crate>;
 
     // 标识
     enum class IdentifierKind {
@@ -350,7 +352,7 @@ namespace rx::ast {
     // [修改 1] Crate 从文件开头移到所有 Item 定义之后：
     //          原来 std::vector<ItemPtr> 在 Item 尚未定义时使用它，顺序反了。
     // 一个编译单元
-    struct Crate {
+    struct Crate : Node {
         std::vector<ItemPtr> items;
     };
 
