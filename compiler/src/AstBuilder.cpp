@@ -968,8 +968,6 @@ namespace rx {
                 return buildIf(static_cast<RxParser::IfExpressionContext*>(ctx));
             case RxParser::RuleExpressionWithBlock: {
                 auto* c = static_cast<RxParser::ExpressionWithBlockContext*>(ctx);
-                if (auto* b = c->blockExpression()) return buildBlock(b);
-                if (auto* i = c->ifExpression()) return buildIf(i);
                 if (c->LOOP()) {
                     auto n = std::make_shared<ast::Loop>();
                     n->loc = loc(c);
@@ -983,6 +981,8 @@ namespace rx {
                     n->body = buildBlock(c->blockExpression());
                     return n;
                 }
+                if (auto* i = c->ifExpression()) return buildIf(i);
+                if (auto* b = c->blockExpression()) return buildBlock(b);
                 return nullptr;
             }
             default:

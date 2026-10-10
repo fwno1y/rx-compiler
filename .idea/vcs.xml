@@ -2,5 +2,7 @@
 <project version="4">
   <component name="VcsDirectoryMappings">
     <mapping directory="" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/tests/official" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/vendor/REIMU" vcs="Git" />
   </component>
 </project>

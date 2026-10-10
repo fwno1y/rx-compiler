@@ -63,6 +63,13 @@ build CMakeFiles/rxcc.dir/src/AstBuilder.cpp.o: CXX_COMPILER__rxcc_unscanned_Rel
   OBJECT_DIR = CMakeFiles/rxcc.dir
   OBJECT_FILE_DIR = CMakeFiles/rxcc.dir/src
 
+build CMakeFiles/rxcc.dir/src/ast/AstDump.cpp.o: CXX_COMPILER__rxcc_unscanned_Release /mnt/c/Users/36433/Desktop/课程作业/大二上（真）/编译器/rx-compiler/compiler/src/ast/AstDump.cpp || cmake_object_order_depends_target_rxcc
+  DEP_FILE = CMakeFiles/rxcc.dir/src/ast/AstDump.cpp.o.d
+  FLAGS = -O3 -DNDEBUG -std=c++17
+  INCLUDES = -I/mnt/c/Users/36433/Desktop/课程作业/大二上（真）/编译器/rx-compiler/compiler/build/gen -I/mnt/c/Users/36433/Desktop/课程作业/大二上（真）/编译器/rx-compiler/compiler/src -isystem /usr/local/include/antlr4-runtime
+  OBJECT_DIR = CMakeFiles/rxcc.dir
+  OBJECT_FILE_DIR = CMakeFiles/rxcc.dir/src/ast
+
 build CMakeFiles/rxcc.dir/gen/RxLexer.cpp.o: CXX_COMPILER__rxcc_unscanned_Release /mnt/c/Users/36433/Desktop/课程作业/大二上（真）/编译器/rx-compiler/compiler/build/gen/RxLexer.cpp || cmake_object_order_depends_target_rxcc
   DEP_FILE = CMakeFiles/rxcc.dir/gen/RxLexer.cpp.o.d
   FLAGS = -O3 -DNDEBUG -std=c++17
@@ -92,7 +99,7 @@ build CMakeFiles/rxcc.dir/gen/RxParserBaseVisitor.cpp.o: CXX_COMPILER__rxcc_unsc
 #############################################
 # Link the executable rxcc
 
-build rxcc: CXX_EXECUTABLE_LINKER__rxcc_Release CMakeFiles/rxcc.dir/src/main.cpp.o CMakeFiles/rxcc.dir/src/AstBuilder.cpp.o CMakeFiles/rxcc.dir/gen/RxLexer.cpp.o CMakeFiles/rxcc.dir/gen/RxParser.cpp.o CMakeFiles/rxcc.dir/gen/RxParserBaseVisitor.cpp.o | /usr/local/lib/libantlr4-runtime.a
+build rxcc: CXX_EXECUTABLE_LINKER__rxcc_Release CMakeFiles/rxcc.dir/src/main.cpp.o CMakeFiles/rxcc.dir/src/AstBuilder.cpp.o CMakeFiles/rxcc.dir/src/ast/AstDump.cpp.o CMakeFiles/rxcc.dir/gen/RxLexer.cpp.o CMakeFiles/rxcc.dir/gen/RxParser.cpp.o CMakeFiles/rxcc.dir/gen/RxParserBaseVisitor.cpp.o | /usr/local/lib/libantlr4-runtime.a
   FLAGS = -O3 -DNDEBUG
   LINK_LIBRARIES = /usr/local/lib/libantlr4-runtime.a
   OBJECT_DIR = CMakeFiles/rxcc.dir

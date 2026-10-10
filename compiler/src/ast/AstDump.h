@@ -1,8 +1,11 @@
-//
-// Created by 36433 on 2026/9/28.
-//
+#pragma once
 
-#ifndef RX_COMPILER_ASTDUMP_H
-#define RX_COMPILER_ASTDUMP_H
+#include <iosfwd>
 
-#endif //RX_COMPILER_ASTDUMP_H
+#include "ast/AST.h"
+
+namespace rx::ast {
+
+    void dumpCrate(std::ostream& os, const Crate& crate);
+
+}

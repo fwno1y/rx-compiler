@@ -32,6 +32,6 @@ add_custom_command(
         COMMENT "Generating Rx Lexer/Parser with ANTLR"
         VERBATIM)
 
-add_executable(rxcc src/main.cpp src/AstBuilder.cpp ${GENERATED})
+add_executable(rxcc src/main.cpp src/AstBuilder.cpp src/ast/AstDump.cpp ${GENERATED})
 target_include_directories(rxcc PRIVATE ${GEN_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/src)
 target_link_libraries(rxcc PRIVATE antlr4_static)
