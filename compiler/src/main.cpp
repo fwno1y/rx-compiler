@@ -99,6 +99,5 @@ int main(int argc, char** argv) {
         }
     }
 
-    // TODO(semantic): 在此接入 SemanticAnalyzer，按 0=接受 / 1=拒绝 返回。
     return 0;
 }

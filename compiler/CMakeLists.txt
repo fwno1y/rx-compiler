@@ -19,7 +19,20 @@ set(GENERATED
         ${GEN_DIR}/RxLexer.cpp ${GEN_DIR}/RxLexer.h
         ${GEN_DIR}/RxParser.cpp ${GEN_DIR}/RxParser.h
         ${GEN_DIR}/RxParserBaseVisitor.cpp ${GEN_DIR}/RxParserBaseVisitor.h
-        ${GEN_DIR}/RxParserVisitor.h)
+        ${GEN_DIR}/RxParserVisitor.h
+        src/semantic/Ty.h
+        src/semantic/Diagnostics.h
+        src/semantic/Ty.cpp
+        src/semantic/Symbols.h
+        src/semantic/Symbols.cpp
+        src/semantic/Sema.h
+        src/semantic/Sema.cpp
+        src/semantic/ConstEval.h
+        src/semantic/ConstEval.cpp
+        src/semantic/Layout.cpp
+        src/semantic/Layout.h
+        src/semantic/Traits.h
+        src/semantic/Traits.cpp)
 
 add_custom_command(
         OUTPUT ${GENERATED}

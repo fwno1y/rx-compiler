@@ -8,6 +8,7 @@ namespace ast = rx::ast;
 
 namespace {
 
+    // 返回第 n 个规则子节点（跳过 token 叶子）。
     ParserRuleContext* nthRuleChild(ParserRuleContext* ctx, size_t n) {
         size_t k = 0;
         for (auto* ch : ctx->children) {
@@ -19,6 +20,7 @@ namespace {
         return nullptr;
     }
 
+    // 把二元运算符 token映射成 BinaryOp；返回 true 表示该 token 是二元运算符。
     bool binOpFromToken(size_t t, ast::BinaryOp& op) {
         switch (t) {
             case RxParser::PLUS:
@@ -62,6 +64,7 @@ namespace {
         }
     }
 
+    // 把运算符规则（additiveOperator 等）映射成 BinaryOp；返回 true 表示是运算符。
     bool binOpFromRuleCtx(ParserRuleContext* rc, ast::BinaryOp& op) {
         switch (rc->getRuleIndex()) {
             case RxParser::RuleMultiplicativeOperator: {
@@ -103,6 +106,7 @@ namespace {
         }
     }
 
+    // 把一元运算符规则映射成 UnaryOp（含 &mut / &&mut 等）。
     ast::UnaryOp mapUnaryOp(RxParser::UnaryOperatorContext* c) {
         if (c->MINUS()) return ast::UnaryOp::Neg;
         if (c->NOT()) return ast::UnaryOp::Not;
@@ -111,6 +115,7 @@ namespace {
         return c->MUT() ? ast::UnaryOp::RefMut : ast::UnaryOp::Ref;
     }
 
+    // 把赋值运算符规则映射成 AssignOp（`=` 由 equalsSign 规则表示）。
     ast::AssignOp mapAssignOp(RxParser::AssignmentOperatorContext* c) {
         if (c->equalsSign()) return ast::AssignOp::Assign;
         if (c->PLUS_ASSIGN()) return ast::AssignOp::AddAssign;
@@ -130,6 +135,7 @@ namespace {
 
 namespace rx {
 
+    // 取规则起始 token 的行列作为源码位置。
     ast::SourceLoc AstBuilder::loc(ParserRuleContext* ctx) {
         auto* t = ctx->getStart();
         return ast::SourceLoc{ static_cast<std::size_t>(t->getLine()), static_cast<std::size_t>(t->getCharPositionInLine()) };
@@ -137,12 +143,14 @@ namespace rx {
 
     // Item 类
 
+    // 入口：遍历所有顶层 item，构建编译单元 Crate。
     ast::Crate AstBuilder::buildCrate(RxParser::CrateContext* ctx) {
         ast::Crate crate;
         for (auto* it : ctx->item()) crate.items.push_back(buildItem(it));
         return crate;
     }
 
+    // 按 item 的分支分派到具体的顶层声明构建函数。
     ast::ItemPtr AstBuilder::buildItem(RxParser::ItemContext* ctx) {
         if (auto* u = ctx->useDeclaration()) return buildUseDecl(u);
         if (auto* f = ctx->functionDefinition()) return buildFunctionDef(f);
@@ -152,6 +160,7 @@ namespace rx {
         return nullptr;
     }
 
+    // 构建 use 声明：递归构建右侧的 use 树。
     std::shared_ptr<ast::UseDecl> AstBuilder::buildUseDecl(RxParser::UseDeclarationContext* ctx) {
         auto n = std::make_shared<ast::UseDecl>();
         n->loc = loc(ctx);
@@ -159,6 +168,7 @@ namespace rx {
         return n;
     }
 
+    // 递归构建 use 右侧的树：普通路径 / 通配 * / 分组 {…}。
     ast::UseTreePtr AstBuilder::buildUseTree(RxParser::UseTreeContext* ctx) {
         if (ctx->STAR() || ctx->LBRACE()) {
             std::vector<ast::IdentSegment> prefix;
@@ -197,6 +207,7 @@ namespace rx {
         return n;
     }
 
+    // 构建 use 路径的各段，区分 identifier / self / super / crate。
     std::vector<ast::IdentSegment> AstBuilder::buildUsePath(RxParser::UsePathContext* ctx) {
         std::vector<ast::IdentSegment> segs;
         for (auto* s : ctx->usePathSegment()) {
@@ -220,6 +231,7 @@ namespace rx {
         return segs;
     }
 
+    // 构建函数定义：名字、泛型、参数、返回类型、where、函数体。
     std::shared_ptr<ast::FunctionDef> AstBuilder::buildFunctionDef(RxParser::FunctionDefinitionContext* ctx) {
         auto n = std::make_shared<ast::FunctionDef>();
         n->loc = loc(ctx);
@@ -232,6 +244,7 @@ namespace rx {
         return n;
     }
 
+    // 把 self 参数和普通参数填进 FunctionDef 的 ParamList。
     void AstBuilder::buildFunctionParameters(RxParser::FunctionParametersContext* ctx, ast::FunctionDef& fn) {
         fn.params.loc = loc(ctx);
         if (auto* sp = ctx->selfParam()) {
@@ -255,6 +268,7 @@ namespace rx {
         }
     }
 
+    // 构建结构体定义：属性、名字、泛型、where、字段列表。
     std::shared_ptr<ast::StructDef> AstBuilder::buildStructDef(RxParser::StructDefinitionContext* ctx) {
         auto n = std::make_shared<ast::StructDef>();
         n->loc = loc(ctx);
@@ -287,6 +301,7 @@ namespace rx {
         return n;
     }
 
+    // 构建常量定义：名字、类型、初值。
     std::shared_ptr<ast::ConstItem> AstBuilder::buildConstItem(RxParser::ConstantItemContext* ctx) {
         auto n = std::make_shared<ast::ConstItem>();
         n->loc = loc(ctx);
@@ -296,6 +311,7 @@ namespace rx {
         return n;
     }
 
+    // 构建 impl 块：泛型、目标类型、where、关联项（const/fn）。
     std::shared_ptr<ast::Impl> AstBuilder::buildImpl(RxParser::InherentImplContext* ctx) {
         auto n = std::make_shared<ast::Impl>();
         n->loc = loc(ctx);
@@ -314,10 +330,12 @@ namespace rx {
 
     // 泛型、生命周期
 
+    // 构建一个生命周期名（如 'a）。
     ast::Lifetime AstBuilder::buildLifetime(RxParser::LifetimeContext* ctx) {
         return ast::Lifetime{ loc(ctx), ctx->LIFETIME()->getText() };
     }
 
+    // 构建生命周期上界集合（如 'b + 'c）。
     ast::LifetimeBounds AstBuilder::buildLifetimeBounds(RxParser::LifetimeBoundsContext* ctx) {
         ast::LifetimeBounds b;
         b.loc = loc(ctx);
@@ -325,6 +343,7 @@ namespace rx {
         return b;
     }
 
+    // 构建泛型参数表 <...>（Rx 只有生命周期参数）。
     ast::GenericParams AstBuilder::buildGenericParams(RxParser::GenericParamsContext* ctx) {
         ast::GenericParams gp;
         gp.loc = loc(ctx);
@@ -338,6 +357,7 @@ namespace rx {
         return gp;
     }
 
+    // 构建泛型实参表 <...>（每项是生命周期或类型）。
     ast::GenericArgs AstBuilder::buildGenericArgs(RxParser::GenericArgsContext* ctx) {
         ast::GenericArgs ga;
         ga.loc = loc(ctx);
@@ -357,6 +377,7 @@ namespace rx {
         return ga;
     }
 
+    // 构建 where 子句（生命周期项或类型项）。
     ast::WhereClause AstBuilder::buildWhereClause(RxParser::WhereClauseContext* ctx) {
         ast::WhereClause wc;
         wc.loc = loc(ctx);
@@ -385,6 +406,7 @@ namespace rx {
 
     // Type 类
 
+    // 按类型分支分派构建 Type：命名 / 引用 / 数组 / 括号 / 单元。
     ast::TypePtr AstBuilder::buildType(RxParser::TypeRefContext* ctx) {
         if (auto* tp = ctx->typePath()) return buildTypePath(tp);
         if (auto* rt = ctx->referenceType()) return buildReferenceType(rt);
@@ -403,6 +425,7 @@ namespace rx {
         return nullptr;
     }
 
+    // 构建引用类型 &T / &mut T / &&'a T。
     ast::TypePtr AstBuilder::buildReferenceType(RxParser::ReferenceTypeContext* ctx) {
         auto n = std::make_shared<ast::RefType>();
         n->loc = loc(ctx);
@@ -413,6 +436,7 @@ namespace rx {
         return n;
     }
 
+    // 构建数组类型 [T; N]（长度是常量表达式）。
     ast::TypePtr AstBuilder::buildArrayType(RxParser::ArrayTypeContext* ctx) {
         auto n = std::make_shared<ast::ArrayType>();
         n->loc = loc(ctx);
@@ -421,6 +445,7 @@ namespace rx {
         return n;
     }
 
+    // 构建命名类型（路径 + 各段的可选泛型实参）。
     ast::TypePtr AstBuilder::buildTypePath(RxParser::TypePathContext* ctx) {
         auto n = std::make_shared<ast::TypePath>();
         n->loc = loc(ctx);
@@ -434,6 +459,7 @@ namespace rx {
         return n;
     }
 
+    // 构建 as 后面的类型（closedCastType，比普通类型多一种写法）。
     ast::TypePtr AstBuilder::buildClosedCastType(RxParser::ClosedCastTypeContext* ctx) {
         if (ctx->LPAREN()) {
             if (auto* inner = ctx->typeRef()) {
@@ -473,6 +499,7 @@ namespace rx {
         return tp;
     }
 
+    // 构建路径中的一段标识（普通 / self / Self）。
     ast::IdentSegment AstBuilder::buildPathIdent(RxParser::PathIdentSegmentContext* ctx) {
         ast::IdentSegment s;
         s.loc = loc(ctx);
@@ -489,6 +516,7 @@ namespace rx {
         return s;
     }
 
+    // 构建表达式路径的一段（标识 + 可选泛型实参）。
     ast::PathSegment AstBuilder::buildPathExprSegment(RxParser::PathExprSegmentContext* ctx) {
         ast::PathSegment seg;
         seg.loc = loc(ctx);
@@ -497,6 +525,7 @@ namespace rx {
         return seg;
     }
 
+    // 构建整条表达式路径（多个段）。
     std::vector<ast::PathSegment> AstBuilder::buildPathInExpression(RxParser::PathInExpressionContext* ctx) {
         std::vector<ast::PathSegment> segs;
         for (auto* s : ctx->pathExprSegment()) segs.push_back(buildPathExprSegment(s));
@@ -505,6 +534,7 @@ namespace rx {
 
     // 常量值
 
+    // 构建常量值：字面量 / 路径 / 负号 / 括号。
     ast::ExprPtr AstBuilder::buildConstValue(RxParser::ConstValueContext* ctx) {
         if (ctx->INTEGER_LITERAL() || ctx->TRUE() || ctx->FALSE()) {
             auto n = std::make_shared<ast::Literal>();
@@ -535,6 +565,7 @@ namespace rx {
         return nullptr;
     }
 
+    // 构建 magnitude（常量值里负号后面的部分）。
     ast::ExprPtr AstBuilder::buildMagnitude(RxParser::MagnitudeContext* ctx) {
         if (ctx->INTEGER_LITERAL()) {
             auto n = std::make_shared<ast::Literal>();
@@ -554,6 +585,7 @@ namespace rx {
 
     // Stmt 类
 
+    // 按语句分支分派：let / 带块表达式 / 表达式语句（单独的 ';' 返回空）。
     ast::StmtPtr AstBuilder::buildStmt(RxParser::StatementContext* ctx) {
         if (auto* l = ctx->letStatement()) return buildLet(l);
         if (auto* w = ctx->expressionWithBlock()) {
@@ -573,6 +605,7 @@ namespace rx {
         return nullptr; // 单独的 ';'
     }
 
+    // 构建 let 语句：绑定、可选类型、初值。
     std::shared_ptr<ast::LetStmt> AstBuilder::buildLet(RxParser::LetStatementContext* ctx) {
         auto n = std::make_shared<ast::LetStmt>();
         n->loc = loc(ctx);
@@ -585,6 +618,7 @@ namespace rx {
         return n;
     }
 
+    // 构建块：语句列表 stmts + 尾表达式 tail。
     ast::BlockPtr AstBuilder::buildBlock(RxParser::BlockExpressionContext* ctx) {
         auto n = std::make_shared<ast::Block>();
         n->loc = loc(ctx);
@@ -598,6 +632,7 @@ namespace rx {
 
     // Expr 类
 
+    // 表达式总调度：按规则号把各类表达式分派到对应构建函数。
     ast::ExprPtr AstBuilder::buildExpr(ParserRuleContext* ctx) {
         if (!ctx) return nullptr;
         switch (ctx->getRuleIndex()) {
@@ -661,6 +696,7 @@ namespace rx {
         }
     }
 
+    // 通用左折叠：处理所有二元优先级链（操作数/运算符交替）。
     ast::ExprPtr AstBuilder::buildFold(ParserRuleContext* ctx) {
         ast::ExprPtr acc;
         ast::BinaryOp pending = ast::BinaryOp::Add;
@@ -693,6 +729,7 @@ namespace rx {
         return acc;
     }
 
+    // 构建赋值（右结合）：找到赋值运算符和左右操作数。
     ast::ExprPtr AstBuilder::buildAssign(ParserRuleContext* ctx) {
         ParserRuleContext* lhsCtx = nullptr;
         ParserRuleContext* opCtx = nullptr;
@@ -714,6 +751,7 @@ namespace rx {
         return n;
     }
 
+    // 构建 as 类型转换（可多层，如 a as T as U）。
     ast::ExprPtr AstBuilder::buildCast(ParserRuleContext* ctx) {
         ast::ExprPtr acc;
         for (size_t i = 0; i < ctx->children.size(); ++i) {
@@ -742,6 +780,7 @@ namespace rx {
         return acc;
     }
 
+    // 构建一元运算；若不是一元则下钻到后缀/原子。
     ast::ExprPtr AstBuilder::buildUnary(ParserRuleContext* ctx) {
         auto* first = nthRuleChild(ctx, 0);
         if (first && first->getRuleIndex() == RxParser::RuleUnaryOperator) {
@@ -754,6 +793,7 @@ namespace rx {
         return buildExpr(first);
     }
 
+    // 构建后缀链：先建基准，再逐个把后缀包上去。
     ast::ExprPtr AstBuilder::buildPostfix(ParserRuleContext* ctx) {
         ast::ExprPtr base;
         for (auto* ch : ctx->children) {
@@ -772,6 +812,7 @@ namespace rx {
         return base;
     }
 
+    // 把一个后缀（调用/下标/点）应用到已有表达式上。
     ast::ExprPtr AstBuilder::applyPostfix(ast::ExprPtr base, ParserRuleContext* rc) {
         if (rc->getRuleIndex() == RxParser::RuleDotSuffix)
             return applyDot(std::move(base), static_cast<RxParser::DotSuffixContext*>(rc));
@@ -794,6 +835,7 @@ namespace rx {
         return applyDot(std::move(base), c->dotSuffix());
     }
 
+    // 把点后缀应用到已有表达式上：方法调用或字段访问。
     ast::ExprPtr AstBuilder::applyDot(ast::ExprPtr base, RxParser::DotSuffixContext* ctx) {
         if (auto* args = ctx->callArguments()) {
             auto n = std::make_shared<ast::MethodCall>();
@@ -810,6 +852,7 @@ namespace rx {
         return n;
     }
 
+    // 按原子表达式分支分派（普通位置 / 条件位置）。
     ast::ExprPtr AstBuilder::buildPrimary(ParserRuleContext* ctx) {
         switch (ctx->getRuleIndex()) {
             case RxParser::RulePrimaryExpression: {
@@ -830,6 +873,7 @@ namespace rx {
         return nullptr;
     }
 
+    // 构建普通原子：字面量/路径/结构体字面量/括号/数组/jump。
     ast::ExprPtr AstBuilder::buildNonBlockPrimary(RxParser::NonBlockPrimaryContext* ctx) {
         if (auto* lit = ctx->literalExpression()) return buildLiteral(lit);
         if (auto* p = ctx->pathInExpression()) {
@@ -881,6 +925,7 @@ namespace rx {
         return nullptr;
     }
 
+    // 构建条件位置的原子：额外含 if / loop / while。
     ast::ExprPtr AstBuilder::buildConditionPrimary(RxParser::ConditionPrimaryWithoutBareBlockContext* ctx) {
         if (auto* lit = ctx->literalExpression()) return buildLiteral(lit);
         if (auto* p = ctx->pathInExpression()) {
@@ -930,6 +975,7 @@ namespace rx {
         return nullptr;
     }
 
+    // 构建字面量（整数 / 布尔）。
     ast::ExprPtr AstBuilder::buildLiteral(RxParser::LiteralExpressionContext* ctx) {
         auto n = std::make_shared<ast::Literal>();
         n->loc = loc(ctx);
@@ -946,6 +992,7 @@ namespace rx {
         return n;
     }
 
+    // 构建数组字面量：ArrayRepeat([e;N]) 或 ArrayLit([...])。
     ast::ExprPtr AstBuilder::buildArray(RxParser::ArrayExpressionContext* ctx) {
         if (ctx->SEMI()) {
             auto n = std::make_shared<ast::ArrayRepeat>();
@@ -960,6 +1007,7 @@ namespace rx {
         return n;
     }
 
+    // 构建带块表达式：block / if / loop / while。
     ast::ExprPtr AstBuilder::buildExprWithBlock(ParserRuleContext* ctx) {
         switch (ctx->getRuleIndex()) {
             case RxParser::RuleBlockExpression:
@@ -990,6 +1038,7 @@ namespace rx {
         }
     }
 
+    // 构建 if 表达式：条件、then 块、可选 else（块或 else-if）。
     ast::ExprPtr AstBuilder::buildIf(RxParser::IfExpressionContext* ctx) {
         auto n = std::make_shared<ast::If>();
         n->loc = loc(ctx);
