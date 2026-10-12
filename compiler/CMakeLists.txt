@@ -22,7 +22,6 @@ set(GENERATED
         ${GEN_DIR}/RxParserVisitor.h
         src/semantic/Ty.h
         src/semantic/Diagnostics.h
-        src/semantic/Ty.cpp
         src/semantic/Symbols.h
         src/semantic/Symbols.cpp
         src/semantic/Sema.h
