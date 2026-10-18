@@ -9,7 +9,7 @@
 namespace rx::sema {
     struct Ty;
     using TyPtr = std::shared_ptr<Ty>;
-
+    // 语义类型
     struct Ty {
         enum class Kind {
             Error, // 错误占位：级联抑制用，与任何类型兼容
@@ -124,6 +124,7 @@ namespace rx::sema {
             }
         return nullptr;
     }
+    // 类型相等
     inline bool typeEqual(const TyPtr& a, const TyPtr& b) {
         if (isError(a) || isError(b)) {
             return true;
@@ -158,6 +159,7 @@ namespace rx::sema {
         }
         return false;
     }
+    // 调试打印，把类型转成字符串
     inline std::string tyToString(const TyPtr& t) {
         if (!t) {
             return "<null>";

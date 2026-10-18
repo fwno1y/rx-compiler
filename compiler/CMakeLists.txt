@@ -23,7 +23,6 @@ set(GENERATED
         src/semantic/Ty.h
         src/semantic/Diagnostics.h
         src/semantic/Symbols.h
-        src/semantic/Symbols.cpp
         src/semantic/Sema.h
         src/semantic/Sema.cpp
         src/semantic/ConstEval.h
