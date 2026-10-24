@@ -19,18 +19,7 @@ set(GENERATED
         ${GEN_DIR}/RxLexer.cpp ${GEN_DIR}/RxLexer.h
         ${GEN_DIR}/RxParser.cpp ${GEN_DIR}/RxParser.h
         ${GEN_DIR}/RxParserBaseVisitor.cpp ${GEN_DIR}/RxParserBaseVisitor.h
-        ${GEN_DIR}/RxParserVisitor.h
-        src/semantic/Ty.h
-        src/semantic/Diagnostics.h
-        src/semantic/Symbols.h
-        src/semantic/Sema.h
-        src/semantic/Sema.cpp
-        src/semantic/ConstEval.h
-        src/semantic/ConstEval.cpp
-        src/semantic/Layout.cpp
-        src/semantic/Layout.h
-        src/semantic/Traits.h
-        src/semantic/Traits.cpp)
+        ${GEN_DIR}/RxParserVisitor.h)
 
 add_custom_command(
         OUTPUT ${GENERATED}
@@ -43,6 +32,14 @@ add_custom_command(
         COMMENT "Generating Rx Lexer/Parser with ANTLR"
         VERBATIM)
 
-add_executable(rxcc src/main.cpp src/AstBuilder.cpp src/ast/AstDump.cpp ${GENERATED})
+add_executable(rxcc
+        src/main.cpp
+        src/AstBuilder.cpp
+        src/ast/AstDump.cpp
+        src/semantic/Sema.cpp
+        src/semantic/ConstEval.cpp
+        src/semantic/Layout.cpp
+        src/semantic/Traits.cpp
+        ${GENERATED})
 target_include_directories(rxcc PRIVATE ${GEN_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/src)
 target_link_libraries(rxcc PRIVATE antlr4_static)

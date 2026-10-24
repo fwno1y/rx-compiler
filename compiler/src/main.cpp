@@ -8,6 +8,7 @@
 #include "RxParser.h"
 #include "AstBuilder.h"
 #include "ast/AstDump.h"
+#include "semantic/Sema.h"
 
 namespace {
 
@@ -85,6 +86,15 @@ int main(int argc, char** argv) {
 
     rx::AstBuilder builder(parser);
     auto crate = builder.buildCrate(tree);
+
+    if (semanticStage) {
+        rx::sema::Sema sema(crate);
+        if (!sema.run()) {
+            sema.diagnostics().report(std::cerr);
+            return 1;
+        }
+        return 0;
+    }
 
     if (opt.stage == "ast" || opt.dumpAst) {
         if (!opt.output.empty()) {

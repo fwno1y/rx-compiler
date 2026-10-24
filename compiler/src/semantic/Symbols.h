@@ -22,16 +22,22 @@ namespace rx::sema {
         const ast::FunctionDef* fn = nullptr;
         const ast::ConstItem* constItem = nullptr;
     };
+    // impl 里的关联常量
+    struct AssocConst {
+        const ast::ConstItem* def = nullptr;
+        TyPtr type;
+    };
     // 一个结构体
     struct StructInfo {
         const ast::StructDef* def = nullptr;
         std::vector<std::string> fieldOrder; // 声名顺序
-        std::unordered_map<std::string, TyPtr> fieldType; // 字段类型
+        std::unordered_map<std::string, TyPtr> fieldTypes; // 字段类型
         bool deriveCopy = false;
         bool deriveClone = false;
         bool derivePartialEq = false;
         bool deriveEq = false;
         std::unordered_map<std::string, TyPtr> methods; // impl项：方法名到函数类型
+        std::unordered_map<std::string, AssocConst> assocConsts;
     };
     class SymbolTable {
     public:

@@ -19,6 +19,30 @@
 },
 {
   "directory": "/mnt/c/Users/36433/Desktop/课程作业/大二上（真）/编译器/rx-compiler/compiler/build",
+  "command": "/usr/bin/c++ -I/mnt/c/Users/36433/Desktop/课程作业/大二上（真）/编译器/rx-compiler/compiler/build/gen -I/mnt/c/Users/36433/Desktop/课程作业/大二上（真）/编译器/rx-compiler/compiler/src -isystem /usr/local/include/antlr4-runtime -O3 -DNDEBUG -std=c++17 -o CMakeFiles/rxcc.dir/src/semantic/Sema.cpp.o -c /mnt/c/Users/36433/Desktop/课程作业/大二上（真）/编译器/rx-compiler/compiler/src/semantic/Sema.cpp",
+  "file": "/mnt/c/Users/36433/Desktop/课程作业/大二上（真）/编译器/rx-compiler/compiler/src/semantic/Sema.cpp",
+  "output": "CMakeFiles/rxcc.dir/src/semantic/Sema.cpp.o"
+},
+{
+  "directory": "/mnt/c/Users/36433/Desktop/课程作业/大二上（真）/编译器/rx-compiler/compiler/build",
+  "command": "/usr/bin/c++ -I/mnt/c/Users/36433/Desktop/课程作业/大二上（真）/编译器/rx-compiler/compiler/build/gen -I/mnt/c/Users/36433/Desktop/课程作业/大二上（真）/编译器/rx-compiler/compiler/src -isystem /usr/local/include/antlr4-runtime -O3 -DNDEBUG -std=c++17 -o CMakeFiles/rxcc.dir/src/semantic/ConstEval.cpp.o -c /mnt/c/Users/36433/Desktop/课程作业/大二上（真）/编译器/rx-compiler/compiler/src/semantic/ConstEval.cpp",
+  "file": "/mnt/c/Users/36433/Desktop/课程作业/大二上（真）/编译器/rx-compiler/compiler/src/semantic/ConstEval.cpp",
+  "output": "CMakeFiles/rxcc.dir/src/semantic/ConstEval.cpp.o"
+},
+{
+  "directory": "/mnt/c/Users/36433/Desktop/课程作业/大二上（真）/编译器/rx-compiler/compiler/build",
+  "command": "/usr/bin/c++ -I/mnt/c/Users/36433/Desktop/课程作业/大二上（真）/编译器/rx-compiler/compiler/build/gen -I/mnt/c/Users/36433/Desktop/课程作业/大二上（真）/编译器/rx-compiler/compiler/src -isystem /usr/local/include/antlr4-runtime -O3 -DNDEBUG -std=c++17 -o CMakeFiles/rxcc.dir/src/semantic/Layout.cpp.o -c /mnt/c/Users/36433/Desktop/课程作业/大二上（真）/编译器/rx-compiler/compiler/src/semantic/Layout.cpp",
+  "file": "/mnt/c/Users/36433/Desktop/课程作业/大二上（真）/编译器/rx-compiler/compiler/src/semantic/Layout.cpp",
+  "output": "CMakeFiles/rxcc.dir/src/semantic/Layout.cpp.o"
+},
+{
+  "directory": "/mnt/c/Users/36433/Desktop/课程作业/大二上（真）/编译器/rx-compiler/compiler/build",
+  "command": "/usr/bin/c++ -I/mnt/c/Users/36433/Desktop/课程作业/大二上（真）/编译器/rx-compiler/compiler/build/gen -I/mnt/c/Users/36433/Desktop/课程作业/大二上（真）/编译器/rx-compiler/compiler/src -isystem /usr/local/include/antlr4-runtime -O3 -DNDEBUG -std=c++17 -o CMakeFiles/rxcc.dir/src/semantic/Traits.cpp.o -c /mnt/c/Users/36433/Desktop/课程作业/大二上（真）/编译器/rx-compiler/compiler/src/semantic/Traits.cpp",
+  "file": "/mnt/c/Users/36433/Desktop/课程作业/大二上（真）/编译器/rx-compiler/compiler/src/semantic/Traits.cpp",
+  "output": "CMakeFiles/rxcc.dir/src/semantic/Traits.cpp.o"
+},
+{
+  "directory": "/mnt/c/Users/36433/Desktop/课程作业/大二上（真）/编译器/rx-compiler/compiler/build",
   "command": "/usr/bin/c++ -I/mnt/c/Users/36433/Desktop/课程作业/大二上（真）/编译器/rx-compiler/compiler/build/gen -I/mnt/c/Users/36433/Desktop/课程作业/大二上（真）/编译器/rx-compiler/compiler/src -isystem /usr/local/include/antlr4-runtime -O3 -DNDEBUG -std=c++17 -o CMakeFiles/rxcc.dir/gen/RxLexer.cpp.o -c /mnt/c/Users/36433/Desktop/课程作业/大二上（真）/编译器/rx-compiler/compiler/build/gen/RxLexer.cpp",
   "file": "/mnt/c/Users/36433/Desktop/课程作业/大二上（真）/编译器/rx-compiler/compiler/build/gen/RxLexer.cpp",
   "output": "CMakeFiles/rxcc.dir/gen/RxLexer.cpp.o"

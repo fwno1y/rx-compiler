@@ -125,7 +125,7 @@ namespace rx::sema {
         return nullptr;
     }
     // 类型相等
-    inline bool typeEqual(const TyPtr& a, const TyPtr& b) {
+    inline bool typeEquals(const TyPtr& a, const TyPtr& b) {
         if (isError(a) || isError(b)) {
             return true;
         }
@@ -142,19 +142,19 @@ namespace rx::sema {
             case Ty::Kind::Struct:
                 return a->name == b->name;
             case Ty::Kind::Ref:
-                return a->refMut == b->refMut && typeEqual(a->refTo, b->refTo);
+                return a->refMut == b->refMut && typeEquals(a->refTo, b->refTo);
             case Ty::Kind::Array:
-                return a->len == b->len && typeEqual(a->element, b->element);
+                return a->len == b->len && typeEquals(a->element, b->element);
             case Ty::Kind::Fn: {
                 if (a->params.size() != b->params.size()) {
                     return false;
                 }
                 for (std::size_t i = 0; i < a->params.size(); ++i) {
-                    if (!typeEqual(a->params[i], b->params[i])) {
+                    if (!typeEquals(a->params[i], b->params[i])) {
                         return false;
                     }
                 }
-                return typeEqual(a->ret, b->ret);
+                return typeEquals(a->ret, b->ret);
             }
         }
         return false;
