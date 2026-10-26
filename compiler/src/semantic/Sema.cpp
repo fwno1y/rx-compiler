@@ -23,6 +23,7 @@ namespace rx::sema {
         declareBuiltins();
         collectItems();
         checkConstants();
+        checkLayout();
         for (auto& item : crate_.items) {
             if (auto* f = dynamic_cast<const ast::FunctionDef*>(item.get())) {
                 checkFunction(f);
@@ -207,6 +208,26 @@ namespace rx::sema {
         }
         if (name == "Self") {
             return tyError();
+        }
+        if (name == "Box" || name == "Vec") {
+            const auto& seg = tp->segments.back();
+            TyPtr elemTy;
+            if (seg.generics) {
+                for (const auto& ga : seg.generics->args) {
+                    if (auto* ta = dynamic_cast<const ast::TypeArg*>(ga.get())) {
+                        if (elemTy) {
+                            error(tp->loc, name + " accepts exactly one type argument");
+                            return tyError();
+                        }
+                        elemTy = resolveType(ta->value.get());
+                    }
+                }
+            }
+            if (!elemTy) {
+                error(tp->loc, name + " requires a type argument");
+                return tyError();
+            }
+            return name == "Box" ? tyBox(elemTy) : tyVec(elemTy);
         }
         if (symbols_.hasStruct(name)) {
             return tyStruct(name);
@@ -800,6 +821,11 @@ namespace rx::sema {
             }
         }
         constEval_.setSelfType("");
+    }
+
+    void Sema::checkLayout() {
+        Layout layout(symbols_, diags_);
+        layout.check();
     }
 
     bool Sema::isPlace(const ast::Expr* e) {

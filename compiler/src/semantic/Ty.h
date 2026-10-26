@@ -20,6 +20,8 @@ namespace rx::sema {
             Ref, // &T / &mut T；&&T 用嵌套 Ref 表示
             Array, // [T; N]
             Struct, // 命名结构体，含预置的 Box / Vec
+            Box, // Box<T>
+            Vec, // Vec<T>
             Fn, // 函数 / 方法类型（仅用于调用检查，无名字
         };
 
@@ -67,6 +69,16 @@ namespace rx::sema {
         t->name = name;
         return t;
     }
+    inline TyPtr tyBox(TyPtr elem) {
+        auto t = makeTy(Ty::Kind::Box);
+        t->element = std::move(elem);
+        return t;
+    }
+    inline TyPtr tyVec(TyPtr elem) {
+        auto t = makeTy(Ty::Kind::Vec);
+        t->element = std::move(elem);
+        return t;
+    }
     inline TyPtr tyRef(TyPtr to, bool isMut = false) {
         auto t = makeTy(Ty::Kind::Ref);
         t->refTo = std::move(to);
@@ -109,20 +121,39 @@ namespace rx::sema {
     inline bool isStruct(const TyPtr& t) {
         return t && t->kind == Ty::Kind::Struct;
     }
+    inline bool isBox(const TyPtr& t) {
+        return t && t->kind == Ty::Kind::Box;
+    }
+    inline bool isVec(const TyPtr& t) {
+        return t && t->kind == Ty::Kind::Vec;
+    }
     inline bool isFn(const TyPtr& t) {
         return t && t->kind == Ty::Kind::Fn;
     }
     // 名字是内建整型则返回对应类型，否则返回 nullptr。
     inline TyPtr builtinIntTy(const std::string& name) {
-        static const char* Ints[] = {
-            "i8",  "i16",  "i32",  "i64",  "i128",  "isize",
-            "u8",  "u16",  "u32",  "u64",  "u128",  "usize",
-        };
+        static const char* Ints[] = { "i32", "u32", "isize", "usize" };
         for (auto* n : Ints)
-            if (name == n) {
-                return tyInt(name);
-            }
+            if (name == n) return tyInt(name);
         return nullptr;
+    }
+    // 递归检查类型内部是否含 Error
+    inline bool containsError(const TyPtr& t) {
+        if (isError(t)) return true;
+        switch (t->kind) {
+            case Ty::Kind::Ref:
+                return containsError(t->refTo);
+            case Ty::Kind::Array:
+            case Ty::Kind::Box:
+            case Ty::Kind::Vec:
+                return containsError(t->element);
+            case Ty::Kind::Fn:
+                for (auto& p : t->params)
+                    if (containsError(p)) return true;
+                return containsError(t->ret);
+            default:
+                return false;
+        }
     }
     // 类型相等
     inline bool typeEquals(const TyPtr& a, const TyPtr& b) {
@@ -145,6 +176,9 @@ namespace rx::sema {
                 return a->refMut == b->refMut && typeEquals(a->refTo, b->refTo);
             case Ty::Kind::Array:
                 return a->len == b->len && typeEquals(a->element, b->element);
+            case Ty::Kind::Box:
+            case Ty::Kind::Vec:
+                return typeEquals(a->element, b->element);
             case Ty::Kind::Fn: {
                 if (a->params.size() != b->params.size()) {
                     return false;
@@ -181,6 +215,10 @@ namespace rx::sema {
             }
             case Ty::Kind::Array:
                 return "[" + tyToString(t->element) + "; " + std::to_string(t->len) + "]";
+            case Ty::Kind::Box:
+                return "Box<" + tyToString(t->element) + ">";
+            case Ty::Kind::Vec:
+                return "Vec<" + tyToString(t->element) + ">";
             case Ty::Kind::Fn: {
                 std::string s = "fn(";
                 for (std::size_t i = 0; i < t->params.size(); ++i) {

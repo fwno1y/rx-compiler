@@ -5,6 +5,7 @@
 #include "Symbols.h"
 #include "Ty.h"
 #include "ConstEval.h"
+#include "Layout.h"
 
 namespace rx::sema {
     class Sema {
@@ -63,6 +64,7 @@ namespace rx::sema {
         void checkStmt(const ast::Stmt* s);
         void checkMain();
         void checkConstants();
+        void checkLayout();
         void error(const ast::SourceLoc& loc, const std::string& message) {
             diags_.error(loc, message);
         }
