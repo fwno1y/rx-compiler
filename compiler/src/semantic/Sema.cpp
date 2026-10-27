@@ -411,7 +411,9 @@ namespace rx::sema {
             }
         }
         TyPtr tailTy = b->tail ? checkExpr(b->tail.get(), expected) : implicitTail;
-        TyPtr result = diverged ? tyNever() : (tailTy ? tailTy : tyUnit());
+        // 有尾表达式时，尾表达式的类型仍参与约束（即使它不可达）；
+        // 没有尾表达式且有分叉语句时，块类型才是 !
+        TyPtr result = tailTy ? tailTy : (diverged ? tyNever() : tyUnit());
         if (createsScope) {
             symbols_.popScope();
         }
@@ -1325,6 +1327,7 @@ namespace rx::sema {
 
     bool Sema::canCoerce(const TyPtr& actual, const TyPtr& expected) {
         if (typeEquals(actual, expected)) return true;
+        if (isNever(actual)) return true;   // ! 可以协变到任意类型
         if (!actual || !expected) return false;
 
         if (actual->kind == Ty::Kind::Ref && expected->kind == Ty::Kind::Ref) {
