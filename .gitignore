@@ -13,3 +13,6 @@ __pycache__/
 # Local files
 dev/
 *.local.*
+
+# Local CMake build
+/compiler/build/
