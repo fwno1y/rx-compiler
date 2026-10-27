@@ -31,7 +31,11 @@ namespace rx::sema {
                 checkFunction(f);
             }
             else if (auto* impl = dynamic_cast<const ast::Impl*>(item.get())) {
-                auto* tp = dynamic_cast<const ast::TypePath*>(impl->target.get());
+                const ast::Type* target = impl->target.get();
+                while (auto* p = dynamic_cast<const ast::ParenType*>(target)) {
+                    target = p->inner.get();
+                }
+                auto* tp = dynamic_cast<const ast::TypePath*>(target);
                 if (tp && !tp->segments.empty()) {
                     curSelfType_ = tp->segments.back().ident.text;
                 }
@@ -82,6 +86,12 @@ namespace rx::sema {
     void Sema::collectStruct(const ast::StructDef *s) {
         if (symbols_.hasStruct(s->name)) {
             error(s->loc, "duplicate definition of type '" + s->name + "'");
+            return;
+        }
+        // 类型命名空间里不能占用内建类型名
+        if (builtinIntTy(s->name) || s->name == "bool" || s->name == "Box" ||
+            s->name == "Vec" || s->name == "Self") {
+            error(s->loc, "`" + s->name + "` is a protected type name");
             return;
         }
         auto& info = symbols_.defineStruct(s->name);
@@ -146,16 +156,38 @@ namespace rx::sema {
     }
 
     void Sema::collectImpl(const ast::Impl *impl) {
-        auto* tp = dynamic_cast<const ast::TypePath*>(impl->target.get());
+        const ast::Type* target = impl->target.get();
+
+        // impl (S) 允许：先去掉括号
+        while (auto* p = dynamic_cast<const ast::ParenType*>(target)) {
+            target = p->inner.get();
+        }
+
+        auto* tp = dynamic_cast<const ast::TypePath*>(target);
         if (!tp || tp->segments.empty()) {
+            error(impl->loc, "impl target must be a user-defined struct");
             return;
         }
-        const std::string& name = tp->segments.back().ident.text;
+
+        const auto& seg = tp->segments.back();
+        const std::string& name = seg.ident.text;
+
+        if (seg.generics) {
+            for (auto& ga : seg.generics->args) {
+                if (dynamic_cast<const ast::TypeArg*>(ga.get())) {
+                    error(impl->loc, "impl target structs take no type arguments");
+                    return;
+                }
+            }
+        }
+
         auto* info = symbols_.findStruct(name);
         if (!info) {
-            error(impl->loc, "impl of unknown type '" + name + "'");
+            error(impl->loc,
+                  "impl target must be a user-defined struct (found '" + name + "')");
             return;
         }
+
         // impl 里的 Self 指目标结构体
         std::string savedSelf = curSelfType_;
         curSelfType_ = name;
@@ -229,14 +261,28 @@ namespace rx::sema {
         if (!tp || tp->segments.empty()) {
             return tyError();
         }
-        const std::string& name = tp->segments.back().ident.text;
+        const auto& seg = tp->segments.back();
+        const std::string& name = seg.ident.text;
+
         if (auto t = builtinIntTy(name)) {
+            if (seg.generics) {
+                error(tp->loc, "primitive types take no type arguments");
+                return tyError();
+            }
             return t;
         }
         if (name == "bool") {
+            if (seg.generics) {
+                error(tp->loc, "primitive types take no type arguments");
+                return tyError();
+            }
             return tyBool();
         }
         if (name == "Self") {
+            if (seg.generics) {
+                error(tp->loc, "`Self` takes no type arguments");
+                return tyError();
+            }
             if (!curSelfType_.empty()) {
                 return tyStruct(curSelfType_);
             }
@@ -244,7 +290,6 @@ namespace rx::sema {
             return tyError();
         }
         if (name == "Box" || name == "Vec") {
-            const auto& seg = tp->segments.back();
             TyPtr elemTy;
             if (seg.generics) {
                 for (const auto& ga : seg.generics->args) {
@@ -264,6 +309,15 @@ namespace rx::sema {
             return name == "Box" ? tyBox(elemTy) : tyVec(elemTy);
         }
         if (symbols_.hasStruct(name)) {
+            // 结构体允许生命周期实参（Holder<'_>），但不允许类型实参
+            if (seg.generics) {
+                for (auto& ga : seg.generics->args) {
+                    if (dynamic_cast<const ast::TypeArg*>(ga.get())) {
+                        error(tp->loc, "structs have no type parameters");
+                        return tyError();
+                    }
+                }
+            }
             return tyStruct(name);
         }
         error(tp->loc, "unknown type '" + name + "'");
@@ -286,6 +340,11 @@ namespace rx::sema {
         curReturn_ = f->returnType ? resolveType(f->returnType.get()) : tyUnit();
         loops.clear();
 
+        // 顶层函数没有 impl 上下文，不能有 self
+        if (f->params.selfParam && curSelfType_.empty()) {
+            error(f->loc, "a top-level function cannot have a receiver");
+        }
+
         // 方法接收者 self
         if (f->params.selfParam) {
             const auto& sp = *f->params.selfParam;
@@ -303,7 +362,11 @@ namespace rx::sema {
             symbols_.declareLocal("self", std::move(s));
         }
 
+        std::unordered_set<std::string> paramNames;
         for (auto& p : f->params.params) {
+            if (!paramNames.insert(p.binding.name).second) {
+                error(p.loc, "duplicate parameter `" + p.binding.name + "`");
+            }
             Symbol s;
             s.kind = Symbol::Kind::Param;
             s.type = resolveType(p.type.get());
@@ -507,6 +570,10 @@ namespace rx::sema {
             return tyError();
         }
         if (n->segments.size() == 1) {
+            if (n->segments[0].generics) {
+                error(n->loc, "functions and values take no type arguments");
+                return tyError();
+            }
             Symbol* sym = symbols_.lookup(n->segments[0].ident.text);
             if (!sym) {
                 error(n->loc, "unresolved name `" + n->segments[0].ident.text + "`");
@@ -542,27 +609,51 @@ namespace rx::sema {
         if (isError(l) || isError(r)) {
             return tyError();
         }
+
         using BO = ast::BinaryOp;
         switch (n->op) {
+            // 算术：允许一层共享引用，必须同型整数
             case BO::Add: case BO::Sub: case BO::Mul:
-            case BO::Div: case BO::Rem:
-            case BO::BitAnd: case BO::BitOr: case BO::BitXor:
-                if (!isInt(l) || !isInt(r)) {
-                    error(n->loc, "arithmetic/bitwise operator requires integers");
+            case BO::Div: case BO::Rem: {
+                bool lok = false, rok = false;
+                TyPtr lv = scalarView(l, lok);
+                TyPtr rv = scalarView(r, rok);
+                if (!lok || !rok || !isInt(lv) || !isInt(rv)) {
+                    error(n->loc, "arithmetic operator requires integers");
                     return tyError();
                 }
-                if (l->name != r->name) {
+                if (lv->name != rv->name) {
                     error(n->loc, "operand types must match");
                     return tyError();
                 }
-                return l;
+                return lv;
+            }
 
-            case BO::Shl: case BO::Shr:
-                if (!isInt(l) || !isInt(r)) {
+            // 位运算：整数或 bool，两边同型；允许一层共享引用
+            case BO::BitAnd: case BO::BitOr: case BO::BitXor: {
+                bool lok = false, rok = false;
+                TyPtr lv = scalarView(l, lok);
+                TyPtr rv = scalarView(r, rok);
+                if (!lok || !rok || !typeEquals(lv, rv) ||
+                    (!isInt(lv) && !isBool(lv))) {
+                    error(n->loc,
+                          "bitwise operands must be the same integer or bool type");
+                    return tyError();
+                }
+                return lv;
+            }
+
+            // 移位：两边整数，计数可与左操作数不同类型；允许一层共享引用
+            case BO::Shl: case BO::Shr: {
+                bool lok = false, rok = false;
+                TyPtr lv = scalarView(l, lok);
+                TyPtr rv = scalarView(r, rok);
+                if (!lok || !rok || !isInt(lv) || !isInt(rv)) {
                     error(n->loc, "shift requires integers");
                     return tyError();
                 }
-                return l;
+                return lv;
+            }
 
             case BO::And: case BO::Or:
                 if (!isBool(l) || !isBool(r)) {
@@ -582,16 +673,46 @@ namespace rx::sema {
                 }
                 return tyBool();
 
-            case BO::Lt: case BO::Le: case BO::Gt: case BO::Ge:
-                if (!isInt(l) || !isInt(r)) {
-                    error(n->loc, "ordering comparison requires integers");
+            // 排序：两边同为值或同为引用；引用允许沿共享层比较
+            case BO::Lt: case BO::Le: case BO::Gt: case BO::Ge: {
+                bool lRef = l && l->kind == Ty::Kind::Ref;
+                bool rRef = r && r->kind == Ty::Kind::Ref;
+                if (lRef != rRef) {
+                    error(n->loc, "cannot mix a value and a reference in ordering");
                     return tyError();
                 }
-                if (l->name != r->name) {
-                    error(n->loc, "comparison operand types must match");
+                if (!lRef) {
+                    if (!typeEquals(l, r) || (!isInt(l) && !isBool(l))) {
+                        error(n->loc,
+                              "ordering operands must be the same integer or bool type");
+                        return tyError();
+                    }
+                    return tyBool();
+                }
+
+                bool lMut = false, rMut = false;
+                TyPtr lv = l, rv = r;
+                while (lv && lv->kind == Ty::Kind::Ref) {
+                    lMut = lMut || lv->refMut;
+                    lv = lv->refTo;
+                }
+                while (rv && rv->kind == Ty::Kind::Ref) {
+                    rMut = rMut || rv->refMut;
+                    rv = rv->refTo;
+                }
+                if (!typeEquals(lv, rv) || (!isInt(lv) && !isBool(lv))) {
+                    error(n->loc,
+                          "ordering operands must refer to the same scalar type");
+                    return tyError();
+                }
+                // 可变左操作数不能协变成共享右操作数
+                if (lMut && !rMut) {
+                    error(n->loc,
+                          "mutable left operand cannot coerce to a shared right operand");
                     return tyError();
                 }
                 return tyBool();
+            }
         }
         return tyError();
     }
@@ -601,17 +722,26 @@ namespace rx::sema {
         if (isError(t)) {
             return tyError();
         }
+
         switch (n->op) {
-            case ast::UnaryOp::Neg:
-                if (!isInt(t) || !t->isSigned) {
+            case ast::UnaryOp::Neg: {
+                bool ok = false;
+                TyPtr v = scalarView(t, ok);
+                if (!ok || !isInt(v) || !v->isSigned) {
                     error(n->loc, "unary `-` requires a signed integer");
                     return tyError();
                 }
-                return t;
-            case ast::UnaryOp::Not:
-                if (isBool(t) || isInt(t)) return t;
-                error(n->loc, "invalid operand for `!`");
-                return tyError();
+                return v;
+            }
+            case ast::UnaryOp::Not: {
+                bool ok = false;
+                TyPtr v = scalarView(t, ok);
+                if (!ok || (!isBool(v) && !isInt(v))) {
+                    error(n->loc, "invalid operand for `!`");
+                    return tyError();
+                }
+                return v;
+            }
             case ast::UnaryOp::DeRef:
                 if (t->kind == Ty::Kind::Ref) {
                     return t->refTo ? t->refTo : tyError();
@@ -621,22 +751,23 @@ namespace rx::sema {
                 }
                 error(n->loc, "cannot dereference a non-reference");
                 return tyError();
+
             case ast::UnaryOp::Ref:
             case ast::UnaryOp::RefMut:
             case ast::UnaryOp::RefRef:
             case ast::UnaryOp::RefRefMut: {
-                bool isMut = n->op == ast::UnaryOp::RefMut
-                          || n->op == ast::UnaryOp::RefRefMut;
-            bool isDouble = n->op == ast::UnaryOp::RefRef
-                         || n->op == ast::UnaryOp::RefRefMut;
+                bool isMut = n->op == ast::UnaryOp::RefMut ||
+                             n->op == ast::UnaryOp::RefRefMut;
+                bool isDouble = n->op == ast::UnaryOp::RefRef ||
+                                n->op == ast::UnaryOp::RefRefMut;
 
-            // &mut 只能借可变占位；字面量等右值允许临时物化（&mut 20）
-            if (isMut && isPlace(n->operand.get()) &&
-                !isMutablePlace(n->operand.get())) {
-                error(n->loc, "cannot mutably borrow an immutable place");
-            }
+                // &mut 只能借可变占位；字面量等右值允许临时物化（&mut 20）
+                if (isMut && isPlace(n->operand.get()) &&
+                    !isMutablePlace(n->operand.get())) {
+                    error(n->loc, "cannot mutably borrow an immutable place");
+                }
 
-            if (isDouble) {
+                if (isDouble) {
                     TyPtr inner = tyRef(t, isMut);
                     return tyRef(inner, /*isMut=*/false);
                 }
@@ -752,6 +883,13 @@ namespace rx::sema {
     }
 
     TyPtr Sema::checkMethodCall(const ast::MethodCall* n) {
+        if (n->method.generics) {
+            checkExpr(n->target.get());
+            for (auto& a : n->args) checkExpr(a.get());
+            error(n->loc, "method segments take no type parameters");
+            return tyError();
+        }
+
         TyPtr recvTy = checkExpr(n->target.get());     // 保留原始类型（含引用/Box）
         const std::string& name = n->method.ident.text;
 
@@ -980,10 +1118,7 @@ namespace rx::sema {
             if (isNever(elseTy)) {
                 return thenTy;
             }
-            if (!typeEquals(thenTy, elseTy)) {
-                error(n->loc, "if/else branch types differ");
-            }
-            return thenTy;
+            return lub(thenTy, elseTy, n->loc);
         }
         if (!isUnit(thenTy) && !isNever(thenTy)) {
             error(n->loc, "if without else must have unit type");
@@ -1058,8 +1193,11 @@ namespace rx::sema {
         if (!ctx.sawBreak) {
             ctx.sawBreak = true;
             ctx.breakTy = valueTy;
-        } else if (!typeEquals(ctx.breakTy, valueTy)) {
-            error(n->loc, "break value types must match");
+        } else {
+            TyPtr merged = lub(ctx.breakTy, valueTy, n->loc);
+            if (!isError(merged)) {
+                ctx.breakTy = merged;
+            }
         }
         return tyNever();
     }
@@ -1117,14 +1255,30 @@ namespace rx::sema {
                 ? expected->element
                 : nullptr;
 
-        TyPtr elem = checkExpr(n->elements.front().get(), expectedElem);
-        for (std::size_t i = 1; i < n->elements.size(); ++i) {
-            TyPtr hint = expectedElem ? expectedElem : elem;
-            TyPtr t = checkExpr(n->elements[i].get(), hint);
-            if (!typeEquals(elem, t)) {
-                error(n->elements[i]->loc, "array elements have different types");
+        TyPtr elem;
+
+        if (expectedElem) {
+            // 有固定目标：每个元素都必须能协变到目标元素类型
+            elem = expectedElem;
+            for (std::size_t i = 0; i < n->elements.size(); ++i) {
+                TyPtr t = checkExpr(n->elements[i].get(), expectedElem);
+                if (!canCoerce(t, expectedElem)) {
+                    error(n->elements[i]->loc, "array elements have different types");
+                }
+            }
+        } else {
+            // 无目标：第一个元素定型，后续做引用 LUB
+            elem = checkExpr(n->elements.front().get(), nullptr);
+            for (std::size_t i = 1; i < n->elements.size(); ++i) {
+                TyPtr t = checkExpr(n->elements[i].get(), elem);
+                if (typeEquals(elem, t)) continue;
+                TyPtr merged = lub(elem, t, n->elements[i]->loc);
+                if (!isError(merged)) {
+                    elem = merged;
+                }
             }
         }
+
         return tyArray(elem, static_cast<std::size_t>(n->elements.size()));
     }
 
@@ -1171,14 +1325,58 @@ namespace rx::sema {
 
     bool Sema::canCoerce(const TyPtr& actual, const TyPtr& expected) {
         if (typeEquals(actual, expected)) return true;
-        // 顶层 &mut T -> &T（重借用，不移动）
-        if (actual && expected &&
-            actual->kind == Ty::Kind::Ref && expected->kind == Ty::Kind::Ref &&
-            actual->refMut && !expected->refMut &&
-            typeEquals(actual->refTo, expected->refTo)) {
-            return true;
+        if (!actual || !expected) return false;
+
+        if (actual->kind == Ty::Kind::Ref && expected->kind == Ty::Kind::Ref) {
+            // &mut T -> &T
+            if (actual->refMut && !expected->refMut &&
+                typeEquals(actual->refTo, expected->refTo)) {
+                return true;
+            }
+            // 可变性相同：&Box<U> -> &U（逐层 Box 解引用）
+            if (actual->refMut == expected->refMut &&
+                actual->refTo && actual->refTo->kind == Ty::Kind::Box) {
+                TyPtr inner = tyRef(actual->refTo->element, actual->refMut);
+                return canCoerce(inner, expected);
+            }
+            // &mut Box<U> -> &U
+            if (actual->refMut && !expected->refMut &&
+                actual->refTo && actual->refTo->kind == Ty::Kind::Box) {
+                TyPtr inner = tyRef(actual->refTo->element, /*isMut=*/false);
+                return canCoerce(inner, expected);
+            }
         }
         return false;
+    }
+
+    // 算术/位/移位/一元运算：允许一层共享引用
+    TyPtr Sema::scalarView(const TyPtr& t, bool& ok) {
+        if (isInt(t) || isBool(t)) {
+            ok = true;
+            return t;
+        }
+        if (t && t->kind == Ty::Kind::Ref && !t->refMut &&
+            (isInt(t->refTo) || isBool(t->refTo))) {
+            ok = true;
+            return t->refTo;
+        }
+        ok = false;
+        return tyError();
+    }
+
+    // 引用 LUB：&mut T 与 &T -> &T
+    TyPtr Sema::lub(const TyPtr& a, const TyPtr& b, const ast::SourceLoc& loc) {
+        if (isError(a) || isError(b)) return tyError();
+        if (typeEquals(a, b)) return a;
+
+        if (a && b && a->kind == Ty::Kind::Ref && b->kind == Ty::Kind::Ref &&
+            typeEquals(a->refTo, b->refTo) && a->refMut != b->refMut) {
+            return tyRef(a->refTo, /*isMut=*/false);
+        }
+
+        error(loc, "incompatible types `" + tyToString(a) +
+                   "` and `" + tyToString(b) + "`");
+        return tyError();
     }
 
     TyPtr Sema::unref(const TyPtr& t) {
@@ -1399,10 +1597,24 @@ namespace rx::sema {
             return s && (s->kind == Symbol::Kind::Local || s->kind == Symbol::Kind::Param);
         }
         if (auto* f = dynamic_cast<const ast::Field*>(e)) {
-            return isPlace(f->target.get());
+            if (isPlace(f->target.get())) return true;
+
+            // 临时结构体的字段也是 place：make().x = ...
+            TyPtr bt = checkExpr(f->target.get());
+            while (bt && (bt->kind == Ty::Kind::Ref || bt->kind == Ty::Kind::Box)) {
+                bt = (bt->kind == Ty::Kind::Ref) ? bt->refTo : bt->element;
+            }
+            return bt && bt->kind == Ty::Kind::Struct;
         }
         if (auto* i = dynamic_cast<const ast::Index*>(e)) {
-            return isPlace(i->target.get());
+            if (isPlace(i->target.get())) return true;
+
+            // 临时数组/Vec 的下标也是 place：make_array()[0] = ...
+            TyPtr bt = checkExpr(i->target.get());
+            while (bt && (bt->kind == Ty::Kind::Ref || bt->kind == Ty::Kind::Box)) {
+                bt = (bt->kind == Ty::Kind::Ref) ? bt->refTo : bt->element;
+            }
+            return bt && (bt->kind == Ty::Kind::Array || bt->kind == Ty::Kind::Vec);
         }
         if (auto* u = dynamic_cast<const ast::Unary*>(e)) {
             return u->op == ast::UnaryOp::DeRef;

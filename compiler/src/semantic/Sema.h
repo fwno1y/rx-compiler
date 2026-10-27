@@ -41,6 +41,9 @@ namespace rx::sema {
         // 容器/方法辅助
         TyPtr unref(const TyPtr& t);                                     // 去掉所有引用层
         bool canCoerce(const TyPtr& actual, const TyPtr& expected);      // &mut T -> &T 等
+        TyPtr scalarView(const TyPtr& t, bool& ok);                      // 剥一层共享引用的标量视图
+        TyPtr lub(const TyPtr& a, const TyPtr& b,
+                  const ast::SourceLoc& loc);                            // 引用 LUB：&mut T / &T -> &T
         TyPtr typeArgOf(const ast::PathSegment& seg);                    // <T> 里的 T
         std::optional<TyPtr> tryBuiltinCall(const ast::Path* p,
                                             const ast::Call* c);         // Box/Vec 构造/关联调用
