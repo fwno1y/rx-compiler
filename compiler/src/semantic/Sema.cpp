@@ -411,9 +411,16 @@ namespace rx::sema {
             }
         }
         TyPtr tailTy = b->tail ? checkExpr(b->tail.get(), expected) : implicitTail;
-        // 有尾表达式时，尾表达式的类型仍参与约束（即使它不可达）；
-        // 没有尾表达式且有分叉语句时，块类型才是 !
-        TyPtr result = tailTy ? tailTy : (diverged ? tyNever() : tyUnit());
+
+        // 尾表达式即使不可达，也要满足块的期望类型（如循环体必须是 ()）
+        if (tailTy && expected && !isNever(tailTy) &&
+            !canCoerce(tailTy, expected)) {
+            error(b->tail ? b->tail->loc : b->loc,
+                  "block tail type does not match the expected type");
+        }
+
+        // 中途分叉 => 块不会正常结束，类型是 !
+        TyPtr result = diverged ? tyNever() : (tailTy ? tailTy : tyUnit());
         if (createsScope) {
             symbols_.popScope();
         }
@@ -1132,7 +1139,7 @@ namespace rx::sema {
         LoopCtx ctx;
         ctx.expected = expected;             // break 值用外层期望类型推断
         loops.push_back(std::move(ctx));     // 新循环作为最近的跳转目标
-        TyPtr body = checkBlock(n->body.get(), true, nullptr);
+        TyPtr body = checkBlock(n->body.get(), true, tyUnit());
         LoopCtx done = loops.back();
         loops.pop_back();
 
@@ -1157,7 +1164,7 @@ namespace rx::sema {
             error(n->condition->loc, "while condition must be bool");
         }
         loops.push_back(LoopCtx{nullptr, true, false});   // isWhile = true
-        TyPtr body = checkBlock(n->body.get(), true);
+        TyPtr body = checkBlock(n->body.get(), true, tyUnit());
         loops.pop_back();
         if (!isUnit(body) && !isNever(body)) {
             error(n->body->loc, "while body must be unit");
