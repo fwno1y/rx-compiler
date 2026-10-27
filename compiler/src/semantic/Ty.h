@@ -19,7 +19,7 @@ namespace rx::sema {
             Int, // i8..i128 / isize / u8..u128 / usize
             Ref, // &T / &mut T；&&T 用嵌套 Ref 表示
             Array, // [T; N]
-            Struct, // 命名结构体，含预置的 Box / Vec
+            Struct, // 命名结构体
             Box, // Box<T>
             Vec, // Vec<T>
             Fn, // 函数 / 方法类型（仅用于调用检查，无名字

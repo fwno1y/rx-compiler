@@ -27,6 +27,13 @@ namespace rx::sema {
         const ast::ConstItem* def = nullptr;
         TyPtr type;
     };
+    // 方法接收者形态
+    enum class ReceiverKind {
+        None,   // 关联函数：不能用点调用
+        Value,  // self
+        Ref,    // &self
+        RefMut, // &mut self
+    };
     // 一个结构体
     struct StructInfo {
         const ast::StructDef* def = nullptr;
@@ -37,6 +44,7 @@ namespace rx::sema {
         bool derivePartialEq = false;
         bool deriveEq = false;
         std::unordered_map<std::string, TyPtr> methods; // impl项：方法名到函数类型
+        std::unordered_map<std::string, ReceiverKind> methodReceivers;
         std::unordered_map<std::string, AssocConst> assocConsts;
     };
     class SymbolTable {
