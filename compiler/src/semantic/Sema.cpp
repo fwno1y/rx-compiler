@@ -399,7 +399,7 @@ namespace rx::sema {
             // 文法有两种“块尾”：显式 tail，或末尾一条不带分号的表达式语句
             bool isImplicitTail = (i + 1 == n) && !b->tail && es && !es->hasSemi;
             if (isImplicitTail) {
-                implicitTail = checkExpr(es->expr.get(), expected);
+                implicitTail = checkExprImpl(es->expr.get(), expected);
                 if (isNever(implicitTail)) {
                     diverged = true;
                 }
@@ -410,7 +410,7 @@ namespace rx::sema {
                 diverged = true;
             }
         }
-        TyPtr tailTy = b->tail ? checkExpr(b->tail.get(), expected) : implicitTail;
+        TyPtr tailTy = b->tail ? checkExprImpl(b->tail.get(), expected) : implicitTail;
 
         // 尾表达式即使不可达，也要满足块的期望类型（如循环体必须是 ()）
         if (tailTy && expected && !isNever(tailTy) &&
@@ -433,7 +433,7 @@ namespace rx::sema {
         }
         if (auto* l = dynamic_cast<const ast::LetStmt*>(s)) {
             TyPtr declared = l->type ? resolveType(l->type.get()) : nullptr;
-            TyPtr init = l->init ? checkExpr(l->init.get(), declared) : tyUnit();
+            TyPtr init = l->init ? checkExprImpl(l->init.get(), declared) : tyUnit();
             bool sharedTarget = declared && declared->kind == Ty::Kind::Ref &&
                                 !declared->refMut;
             if (l->init && !sharedTarget &&
@@ -451,7 +451,7 @@ namespace rx::sema {
             return tyUnit();
         }
         if (auto* es = dynamic_cast<const ast::ExprStmt*>(s)) {
-            TyPtr t = checkExpr(es->expr.get());
+            TyPtr t = checkExprImpl(es->expr.get());
             // return / break / continue：语句本身类型是 !
             if (isNever(t)) {
                 return tyNever();
@@ -484,7 +484,7 @@ namespace rx::sema {
             error(f->loc, "'main' must return '()'");
         }
     }
-    TyPtr Sema::checkExpr(const ast::Expr* e, TyPtr expected) {
+    TyPtr Sema::checkExprImpl(const ast::Expr* e, TyPtr expected) {
         if (!e) {
             return tyUnit();
         }
@@ -557,6 +557,12 @@ namespace rx::sema {
         return tyError();
     }
 
+    TyPtr Sema::checkExpr(const ast::Expr* e, TyPtr expected) {
+        TyPtr t = checkExprImpl(e, expected);
+        if (e) exprTypes_[e] = t;
+        return t;
+    }
+
     TyPtr Sema::checkLiteral(const ast::Literal* n, const TyPtr& expected) {
         if (n->kind == ast::LiteralKind::Bool) {
             return tyBool();
@@ -613,8 +619,8 @@ namespace rx::sema {
     }
 
     TyPtr Sema::checkBinary(const ast::Binary* n) {
-        TyPtr l = checkExpr(n->lhs.get());
-        TyPtr r = checkExpr(n->rhs.get());
+        TyPtr l = checkExprImpl(n->lhs.get());
+        TyPtr r = checkExprImpl(n->rhs.get());
         if (isError(l) || isError(r)) {
             return tyError();
         }
@@ -727,7 +733,7 @@ namespace rx::sema {
     }
 
     TyPtr Sema::checkUnary(const ast::Unary* n) {
-        TyPtr t = checkExpr(n->operand.get());
+        TyPtr t = checkExprImpl(n->operand.get());
         if (isError(t)) {
             return tyError();
         }
@@ -787,8 +793,8 @@ namespace rx::sema {
     }
 
     TyPtr Sema::checkAssign(const ast::Assign* n) {
-        TyPtr l = checkExpr(n->lhs.get());
-        TyPtr r = checkExpr(n->rhs.get(), l);
+        TyPtr l = checkExprImpl(n->lhs.get());
+        TyPtr r = checkExprImpl(n->rhs.get(), l);
         if (!isPlace(n->lhs.get())) {
             error(n->loc, "left-hand side is not an assignment place");
             return tyUnit();
@@ -833,7 +839,7 @@ namespace rx::sema {
     }
 
     TyPtr Sema::checkCast(const ast::Cast* n) {
-        TyPtr from = checkExpr(n->operand.get());
+        TyPtr from = checkExprImpl(n->operand.get());
         TyPtr to = resolveType(n->target.get());
         if (isError(from) || isError(to)) {
             return to;
@@ -863,7 +869,7 @@ namespace rx::sema {
             }
         }
 
-        TyPtr ft = checkExpr(n->target.get());
+        TyPtr ft = checkExprImpl(n->target.get());
         std::vector<TyPtr> args;
         args.reserve(n->args.size());
         for (std::size_t i = 0; i < n->args.size(); ++i) {
@@ -872,7 +878,7 @@ namespace rx::sema {
             if (!sharedTarget && isImmutableContainerAccess(n->args[i].get())) {
                 error(n->args[i]->loc, "cannot move out of an immutable container index");
             }
-            args.push_back(checkExpr(n->args[i].get(), hint));
+            args.push_back(checkExprImpl(n->args[i].get(), hint));
         }
         if (isError(ft)) {
             return tyError();
@@ -893,13 +899,13 @@ namespace rx::sema {
 
     TyPtr Sema::checkMethodCall(const ast::MethodCall* n) {
         if (n->method.generics) {
-            checkExpr(n->target.get());
-            for (auto& a : n->args) checkExpr(a.get());
+            checkExprImpl(n->target.get());
+            for (auto& a : n->args) checkExprImpl(a.get());
             error(n->loc, "method segments take no type parameters");
             return tyError();
         }
 
-        TyPtr recvTy = checkExpr(n->target.get());     // 保留原始类型（含引用/Box）
+        TyPtr recvTy = checkExprImpl(n->target.get());     // 保留原始类型（含引用/Box）
         const std::string& name = n->method.ident.text;
 
         // 方法接收者：自动解引用 & 和 Box
@@ -910,7 +916,7 @@ namespace rx::sema {
 
         auto checkArgs = [&](const std::vector<TyPtr>& expected) -> bool {
             if (n->args.size() != expected.size()) {
-                for (auto& a : n->args) checkExpr(a.get());
+                for (auto& a : n->args) checkExprImpl(a.get());
                 error(n->loc, "wrong number of arguments");
                 return false;
             }
@@ -921,7 +927,7 @@ namespace rx::sema {
                     error(n->args[i]->loc,
                           "cannot move out of an immutable container index");
                 }
-                TyPtr t = checkExpr(n->args[i].get(), expected[i]);
+                TyPtr t = checkExprImpl(n->args[i].get(), expected[i]);
                 if (!canCoerce(t, expected[i])) {
                     error(n->loc, "argument type mismatch");
                 }
@@ -947,7 +953,7 @@ namespace rx::sema {
                 return checkArgs({}) ? recvTy : tyError();
             }
             for (auto& a : n->args) {
-                checkExpr(a.get());
+                checkExprImpl(a.get());
             }
             error(n->loc, "type does not implement Clone");
             return tyError();
@@ -976,7 +982,7 @@ namespace rx::sema {
                 return ok ? recv->element : tyError();
             }
             for (auto& a : n->args) {
-                checkExpr(a.get());
+                checkExprImpl(a.get());
             }
             error(n->loc, "no method `" + name + "` on Vec");
             return tyError();
@@ -987,7 +993,7 @@ namespace rx::sema {
                 return checkArgs({}) ? tyInt("usize") : tyError();
             }
             for (auto& a : n->args) {
-                checkExpr(a.get());
+                checkExprImpl(a.get());
             }
             error(n->loc, "no method `" + name + "` on array");
             return tyError();
@@ -995,7 +1001,7 @@ namespace rx::sema {
 
         if (recv && recv->kind == Ty::Kind::Box) {
             for (auto& a : n->args) {
-                checkExpr(a.get());
+                checkExprImpl(a.get());
             }
             error(n->loc, "no method `" + name + "` on Box");
             return tyError();
@@ -1016,7 +1022,7 @@ namespace rx::sema {
         // 用户结构体方法
         if (isError(recv) || !recv || recv->kind != Ty::Kind::Struct) {
             for (auto& a : n->args) {
-                checkExpr(a.get());
+                checkExprImpl(a.get());
             }
             error(n->loc, "method call on a value with no methods");
             return tyError();
@@ -1024,7 +1030,7 @@ namespace rx::sema {
         auto* info = symbols_.findStruct(recv->name);
         if (!info) {
             for (auto& a : n->args) {
-                checkExpr(a.get());
+                checkExprImpl(a.get());
             }
             return tyError();
         }
@@ -1036,7 +1042,7 @@ namespace rx::sema {
                 return checkArgs({}) ? recv : tyError();
             }
             for (auto& a : n->args) {
-                checkExpr(a.get());
+                checkExprImpl(a.get());
             }
             error(n->loc, "no method `" + name + "`");
             return tyError();
@@ -1045,7 +1051,7 @@ namespace rx::sema {
         ReceiverKind rk = info->methodReceivers[name];
         if (rk == ReceiverKind::None) {
             for (auto& a : n->args) {
-                checkExpr(a.get());
+                checkExprImpl(a.get());
             }
             error(n->loc,
                   "associated function `" + name +
@@ -1056,7 +1062,7 @@ namespace rx::sema {
         TyPtr ft = it->second;
         if (!ft || ft->kind != Ty::Kind::Fn) {
             for (auto& a : n->args) {
-                checkExpr(a.get());
+                checkExprImpl(a.get());
             }
             return tyError();
         }
@@ -1071,7 +1077,7 @@ namespace rx::sema {
     }
 
     TyPtr Sema::checkField(const ast::Field* n) {
-        TyPtr base = checkExpr(n->target.get());
+        TyPtr base = checkExprImpl(n->target.get());
         while (base && (base->kind == Ty::Kind::Ref || base->kind == Ty::Kind::Box)) {
             base = (base->kind == Ty::Kind::Ref) ? base->refTo : base->element;
         }
@@ -1095,8 +1101,8 @@ namespace rx::sema {
     }
 
     TyPtr Sema::checkIndex(const ast::Index* n) {
-        TyPtr base = checkExpr(n->target.get());
-        TyPtr idx = checkExpr(n->index.get(), tyInt("usize"));
+        TyPtr base = checkExprImpl(n->target.get());
+        TyPtr idx = checkExprImpl(n->index.get(), tyInt("usize"));
         while (base && (base->kind == Ty::Kind::Ref || base->kind == Ty::Kind::Box)) {
             base = (base->kind == Ty::Kind::Ref) ? base->refTo : base->element;
         }
@@ -1114,13 +1120,13 @@ namespace rx::sema {
     }
 
     TyPtr Sema::checkIf(const ast::If* n, const TyPtr& expected) {
-        TyPtr cond = checkExpr(n->condition.get(), tyBool());
+        TyPtr cond = checkExprImpl(n->condition.get(), tyBool());
         if (!isBool(cond) && !isError(cond)) {
             error(n->condition->loc, "if condition must be bool");
         }
         TyPtr thenTy = checkBlock(n->thenBlock.get(), true, expected);
         if (n->elseBranch) {
-            TyPtr elseTy = checkExpr(n->elseBranch.get(), expected);
+            TyPtr elseTy = checkExprImpl(n->elseBranch.get(), expected);
             if (isNever(thenTy)) {
                 return elseTy;
             }
@@ -1158,7 +1164,7 @@ namespace rx::sema {
         // 同时也不能跳到外层循环：检查条件时暂时清空循环栈。
         auto savedLoops = loops;
         loops.clear();
-        TyPtr cond = checkExpr(n->condition.get(), tyBool());
+        TyPtr cond = checkExprImpl(n->condition.get(), tyBool());
         loops = savedLoops;
         if (!isBool(cond) && !isError(cond)) {
             error(n->condition->loc, "while condition must be bool");
@@ -1173,7 +1179,7 @@ namespace rx::sema {
     }
 
     TyPtr Sema::checkReturn(const ast::Return* n) {
-        TyPtr t = n->value ? checkExpr(n->value.get(), curReturn_) : tyUnit();
+        TyPtr t = n->value ? checkExprImpl(n->value.get(), curReturn_) : tyUnit();
         if (curReturn_ && !isNever(t) && !canCoerce(t, curReturn_)) {
             error(n->loc, "return type mismatch");
         }
@@ -1183,7 +1189,7 @@ namespace rx::sema {
     TyPtr Sema::checkBreak(const ast::Break* n) {
         if (loops.empty()) {
             if (n->value) {
-                checkExpr(n->value.get());
+                checkExprImpl(n->value.get());
             }
             error(n->loc, "`break` outside loop");
             return tyNever();
@@ -1191,7 +1197,7 @@ namespace rx::sema {
 
         LoopCtx& ctx = loops.back();
         TyPtr valueTy = n->value
-                            ? checkExpr(n->value.get(), ctx.expected)
+                            ? checkExprImpl(n->value.get(), ctx.expected)
                             : tyUnit();
 
         if (ctx.isWhile && n->value) {
@@ -1236,7 +1242,7 @@ namespace rx::sema {
             auto it = info->fieldTypes.find(fi.name);
             TyPtr fieldTy = (it == info->fieldTypes.end()) ? nullptr : it->second;
 
-            TyPtr vt = checkExpr(fi.value.get(), fieldTy);
+            TyPtr vt = checkExprImpl(fi.value.get(), fieldTy);
 
             if (it == info->fieldTypes.end()) {
                 error(fi.loc, "unknown initializer field `" + fi.name + "`");
@@ -1270,16 +1276,16 @@ namespace rx::sema {
             // 有固定目标：每个元素都必须能协变到目标元素类型
             elem = expectedElem;
             for (std::size_t i = 0; i < n->elements.size(); ++i) {
-                TyPtr t = checkExpr(n->elements[i].get(), expectedElem);
+                TyPtr t = checkExprImpl(n->elements[i].get(), expectedElem);
                 if (!canCoerce(t, expectedElem)) {
                     error(n->elements[i]->loc, "array elements have different types");
                 }
             }
         } else {
             // 无目标：第一个元素定型，后续做引用 LUB
-            elem = checkExpr(n->elements.front().get(), nullptr);
+            elem = checkExprImpl(n->elements.front().get(), nullptr);
             for (std::size_t i = 1; i < n->elements.size(); ++i) {
-                TyPtr t = checkExpr(n->elements[i].get(), elem);
+                TyPtr t = checkExprImpl(n->elements[i].get(), elem);
                 if (typeEquals(elem, t)) continue;
                 TyPtr merged = lub(elem, t, n->elements[i]->loc);
                 if (!isError(merged)) {
@@ -1293,7 +1299,7 @@ namespace rx::sema {
 
     TyPtr Sema::checkArrayRepeat(const ast::ArrayRepeat* n, const TyPtr& expected) {
         TyPtr expectedElem = (expected && expected->kind == Ty::Kind::Array) ? expected->element : nullptr;
-        TyPtr elem = checkExpr(n->element.get(), expectedElem);
+        TyPtr elem = checkExprImpl(n->element.get(), expectedElem);
         auto len = constEval_.evalUsize(n->count.get(), n->count->loc);
         // 长度 > 1 的重复要求元素 Copy（长度 1 不需要）
         if (len && *len > 1 && !traits_.isCopy(elem)) {
@@ -1431,7 +1437,7 @@ namespace rx::sema {
         auto exactArgs = [&](std::size_t n) -> bool {
             if (c->args.size() != n) {
                 for (auto& a : c->args) {
-                    checkExpr(a.get());
+                    checkExprImpl(a.get());
                 }
                 error(c->loc, "wrong number of arguments");
                 return false;
@@ -1444,7 +1450,7 @@ namespace rx::sema {
                 if (!exactArgs(1)) {
                     return tyError();
                 }
-                TyPtr a = checkExpr(c->args[0].get(), elemTy);
+                TyPtr a = checkExprImpl(c->args[0].get(), elemTy);
                 if (!typeEquals(a, elemTy)) {
                     error(c->loc, "argument type mismatch");
                 }
@@ -1458,7 +1464,7 @@ namespace rx::sema {
                     error(c->loc, "Box<T>::clone requires T: Clone");
                     return tyError();
                 }
-                TyPtr a = checkExpr(c->args[0].get());
+                TyPtr a = checkExprImpl(c->args[0].get());
                 TyPtr base = unref(a);
                 if (!base || base->kind != Ty::Kind::Box || !typeEquals(base->element, elemTy)) {
                     error(c->loc, "Box::clone expects &Box<T>");
@@ -1478,7 +1484,7 @@ namespace rx::sema {
         }
         if (fn == "len") {
             if (!exactArgs(1)) return tyError();
-            TyPtr a = checkExpr(c->args[0].get());
+            TyPtr a = checkExprImpl(c->args[0].get());
             TyPtr base = unref(a);
             if (!base || base->kind != Ty::Kind::Vec ||
                 !typeEquals(base->element, elemTy)) {
@@ -1488,7 +1494,7 @@ namespace rx::sema {
         }
         if (fn == "push") {
             if (!exactArgs(2)) return tyError();
-            TyPtr a0 = checkExpr(c->args[0].get());
+            TyPtr a0 = checkExprImpl(c->args[0].get());
             TyPtr base = unref(a0);
             if (!base || base->kind != Ty::Kind::Vec ||
                 !typeEquals(base->element, elemTy)) {
@@ -1496,13 +1502,13 @@ namespace rx::sema {
             } else if (!a0 || a0->kind != Ty::Kind::Ref || !a0->refMut) {
                 error(c->loc, "Vec::push requires mutable access");
             }
-            TyPtr a1 = checkExpr(c->args[1].get(), elemTy);
+            TyPtr a1 = checkExprImpl(c->args[1].get(), elemTy);
             if (!typeEquals(a1, elemTy)) error(c->loc, "push argument type mismatch");
             return tyUnit();
         }
         if (fn == "remove") {
             if (!exactArgs(2)) return tyError();
-            TyPtr a0 = checkExpr(c->args[0].get());
+            TyPtr a0 = checkExprImpl(c->args[0].get());
             TyPtr base = unref(a0);
             if (!base || base->kind != Ty::Kind::Vec ||
                 !typeEquals(base->element, elemTy)) {
@@ -1510,7 +1516,7 @@ namespace rx::sema {
             } else if (!a0 || a0->kind != Ty::Kind::Ref || !a0->refMut) {
                 error(c->loc, "Vec::remove requires mutable access");
             }
-            TyPtr idx = checkExpr(c->args[1].get(), tyInt("usize"));
+            TyPtr idx = checkExprImpl(c->args[1].get(), tyInt("usize"));
             if (!isError(idx) && (!isInt(idx) || idx->name != "usize")) {
                 error(c->args[1]->loc, "remove index must be usize");
             }
@@ -1522,7 +1528,7 @@ namespace rx::sema {
                 error(c->loc, "Vec<T>::clone requires T: Clone");
                 return tyError();
             }
-            TyPtr a = checkExpr(c->args[0].get());
+            TyPtr a = checkExprImpl(c->args[0].get());
             TyPtr base = unref(a);
             if (!base || base->kind != Ty::Kind::Vec ||
                 !typeEquals(base->element, elemTy)) {
@@ -1554,12 +1560,12 @@ namespace rx::sema {
             // 派生 Clone 的显式形式：Pair::clone(&a)
             if (name == "clone" && traits_.isClone(tyStruct(typeName))) {
                 if (c->args.size() != 1) {
-                    for (auto& a : c->args) checkExpr(a.get());
+                    for (auto& a : c->args) checkExprImpl(a.get());
                     error(c->loc, "wrong number of arguments");
                     return tyStruct(typeName);
                 }
                 TyPtr expectRecv = tyRef(tyStruct(typeName), false);
-                TyPtr t = checkExpr(c->args[0].get(), expectRecv);
+                TyPtr t = checkExprImpl(c->args[0].get(), expectRecv);
                 if (!typeEquals(t, expectRecv)) error(c->loc, "argument type mismatch");
                 return tyStruct(typeName);
             }
@@ -1586,12 +1592,12 @@ namespace rx::sema {
         for (auto& t : ft->params) expected.push_back(t);
 
         if (c->args.size() != expected.size()) {
-            for (auto& a : c->args) checkExpr(a.get());
+            for (auto& a : c->args) checkExprImpl(a.get());
             error(c->loc, "wrong number of arguments");
             return ft->ret ? ft->ret : tyUnit();
         }
         for (std::size_t i = 0; i < c->args.size(); ++i) {
-            TyPtr t = checkExpr(c->args[i].get(), expected[i]);
+            TyPtr t = checkExprImpl(c->args[i].get(), expected[i]);
             if (!typeEquals(t, expected[i])) error(c->loc, "argument type mismatch");
         }
         return ft->ret ? ft->ret : tyUnit();
@@ -1610,7 +1616,7 @@ namespace rx::sema {
             if (isPlace(f->target.get())) return true;
 
             // 临时结构体的字段也是 place：make().x = ...
-            TyPtr bt = checkExpr(f->target.get());
+            TyPtr bt = checkExprImpl(f->target.get());
             while (bt && (bt->kind == Ty::Kind::Ref || bt->kind == Ty::Kind::Box)) {
                 bt = (bt->kind == Ty::Kind::Ref) ? bt->refTo : bt->element;
             }
@@ -1620,7 +1626,7 @@ namespace rx::sema {
             if (isPlace(i->target.get())) return true;
 
             // 临时数组/Vec 的下标也是 place：make_array()[0] = ...
-            TyPtr bt = checkExpr(i->target.get());
+            TyPtr bt = checkExprImpl(i->target.get());
             while (bt && (bt->kind == Ty::Kind::Ref || bt->kind == Ty::Kind::Box)) {
                 bt = (bt->kind == Ty::Kind::Ref) ? bt->refTo : bt->element;
             }
@@ -1663,7 +1669,7 @@ namespace rx::sema {
         }
         if (auto* f = dynamic_cast<const ast::Field*>(e)) {
             if (isFrozenPlace(e)) return false;
-            TyPtr bt = checkExpr(f->target.get());
+            TyPtr bt = checkExprImpl(f->target.get());
             if (bt && bt->kind == Ty::Kind::Ref) return bt->refMut;
             if (chainHasMutRef(bt)) return true;
             if (!isPlace(f->target.get())) return true;   // 右值临时
@@ -1671,7 +1677,7 @@ namespace rx::sema {
         }
         if (auto* i = dynamic_cast<const ast::Index*>(e)) {
             if (isFrozenPlace(e)) return false;
-            TyPtr bt = checkExpr(i->target.get());
+            TyPtr bt = checkExprImpl(i->target.get());
             if (bt && bt->kind == Ty::Kind::Ref) return bt->refMut;
             if (chainHasMutRef(bt)) return true;
             if (!isPlace(i->target.get())) return true;   // 右值临时
@@ -1681,7 +1687,7 @@ namespace rx::sema {
             if (u->op != ast::UnaryOp::DeRef) {
                 return false;
             }
-            TyPtr t = checkExpr(u->operand.get());
+            TyPtr t = checkExprImpl(u->operand.get());
             if (!t) return false;
             if (t->kind == Ty::Kind::Ref) {
                 return t->refMut && !isFrozenPlace(u->operand.get());
@@ -1703,19 +1709,19 @@ namespace rx::sema {
         if (dynamic_cast<const ast::Path*>(e)) return false;
 
         if (auto* f = dynamic_cast<const ast::Field*>(e)) {
-            TyPtr bt = checkExpr(f->target.get());
+            TyPtr bt = checkExprImpl(f->target.get());
             if (bt && bt->kind == Ty::Kind::Ref && !bt->refMut) return true;
             return isFrozenPlace(f->target.get());
         }
         if (auto* i = dynamic_cast<const ast::Index*>(e)) {
             if (isImmutableContainerAccess(e)) return true;
-            TyPtr bt = checkExpr(i->target.get());
+            TyPtr bt = checkExprImpl(i->target.get());
             if (bt && bt->kind == Ty::Kind::Ref && !bt->refMut) return true;
             return isFrozenPlace(i->target.get());
         }
         if (auto* u = dynamic_cast<const ast::Unary*>(e)) {
             if (u->op != ast::UnaryOp::DeRef) return false;
-            TyPtr t = checkExpr(u->operand.get());
+            TyPtr t = checkExprImpl(u->operand.get());
             if (t && t->kind == Ty::Kind::Ref && !t->refMut) return true;
             return isFrozenPlace(u->operand.get());
         }
@@ -1727,7 +1733,7 @@ namespace rx::sema {
         auto* idx = dynamic_cast<const ast::Index*>(e);
         if (!idx) return false;
 
-        TyPtr bt = checkExpr(idx->target.get());
+        TyPtr bt = checkExprImpl(idx->target.get());
         TyPtr base = bt;
         while (base && (base->kind == Ty::Kind::Ref || base->kind == Ty::Kind::Box)) {
             base = (base->kind == Ty::Kind::Ref) ? base->refTo : base->element;

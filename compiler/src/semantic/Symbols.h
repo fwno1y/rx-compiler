@@ -80,7 +80,14 @@ namespace rx::sema {
             auto it = globals_.find(name);
             return it == globals_.end() ? nullptr : &it->second;
         }
+        const Symbol* findGlobal(const std::string& name) const {
+            auto it = globals_.find(name);
+            return it == globals_.end() ? nullptr : &it->second;
+        }
         std::unordered_map<std::string, Symbol>& globals() {
+            return globals_;
+        }
+        const std::unordered_map<std::string, Symbol>& globals() const {
             return globals_;
         }
 

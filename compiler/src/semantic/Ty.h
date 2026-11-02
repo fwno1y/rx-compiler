@@ -134,12 +134,16 @@ namespace rx::sema {
     inline TyPtr builtinIntTy(const std::string& name) {
         static const char* Ints[] = { "i32", "u32", "isize", "usize" };
         for (auto* n : Ints)
-            if (name == n) return tyInt(name);
+            if (name == n) {
+                return tyInt(name);
+            }
         return nullptr;
     }
     // 递归检查类型内部是否含 Error
     inline bool containsError(const TyPtr& t) {
-        if (isError(t)) return true;
+        if (isError(t)) {
+            return true;
+        }
         switch (t->kind) {
             case Ty::Kind::Ref:
                 return containsError(t->refTo);

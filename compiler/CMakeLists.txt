@@ -25,6 +25,7 @@ add_executable(rxcc
         src/semantic/ConstEval.cpp
         src/semantic/Layout.cpp
         src/semantic/Traits.cpp
+        src/IR/irgen.cpp
         ${GENERATED})
 
 target_include_directories(rxcc PRIVATE ${GEN_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/src)

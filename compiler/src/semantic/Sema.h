@@ -37,6 +37,7 @@ namespace rx::sema {
         std::string curSelfType_;      // impl / struct 上下文里的 Self 实际类型名
         std::vector<LoopCtx> loops;
         ConstEval constEval_;
+        std::unordered_map<const ast::Expr*, TyPtr> exprTypes_;
 
         // 容器/方法辅助
         TyPtr unref(const TyPtr& t);                                     // 去掉所有引用层
@@ -50,6 +51,9 @@ namespace rx::sema {
         std::optional<TyPtr> tryExplicitAssocCall(const ast::Path* p,
                                                   const ast::Call* c);   // Type::method(args)
         bool isMutableAccess(const ast::Expr* e, const TyPtr& ty);
+        const std::unordered_map<const ast::Expr*, TyPtr>& exprTypes() const {
+            return exprTypes_;
+        }
 
         // 收集
         void declareBuiltins();
@@ -66,7 +70,8 @@ namespace rx::sema {
         // 检查
         void checkFunction(const ast::FunctionDef* f);
         TyPtr checkBlock(const ast::Block* b, bool createsScope, TyPtr expected = nullptr);
-        TyPtr checkExpr(const ast::Expr* e,  TyPtr expected = nullptr);
+        TyPtr checkExprImpl(const ast::Expr* e,  TyPtr expected = nullptr);
+        TyPtr checkExpr(const ast::Expr* e, TyPtr expected);
         TyPtr checkLiteral(const ast::Literal* n, const TyPtr& expected);
         TyPtr checkPath(const ast::Path* n);
         TyPtr checkBinary(const ast::Binary* n);

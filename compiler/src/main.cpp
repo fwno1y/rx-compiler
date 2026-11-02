@@ -9,6 +9,7 @@
 #include "AstBuilder.h"
 #include "ast/AstDump.h"
 #include "semantic/Sema.h"
+#include "IR/irgen.h"
 
 namespace {
 
@@ -20,7 +21,7 @@ namespace {
     };
 
     void printUsage() {
-        std::cerr << "usage: rxcc [--stage ast|semantic] [--dump-ast] [-o <file>] <source.rx>\n";
+        std::cerr << "usage: rxcc [--stage ast|semantic|ir] [--dump-ast] [-o <file>] <source.rx>\n";
     }
 
     bool parseArguments(int argc, char** argv, Options& opt) {
@@ -58,7 +59,7 @@ int main(int argc, char** argv) {
         printUsage();
         return 1;
     }
-    if (opt.stage != "ast" && opt.stage != "semantic") {
+    if (opt.stage != "ast" && opt.stage != "semantic" && opt.stage != "ir") {
         std::cerr << "unknown stage: " << opt.stage << "\n";
         return 1;
     }
@@ -81,7 +82,7 @@ int main(int argc, char** argv) {
     // 词法错误（非法 token）和语法错误都要检查。
     if (lexer.getNumberOfSyntaxErrors() != 0 || parser.getNumberOfSyntaxErrors() != 0) {
         std::cerr << "syntax error in " << opt.input << "\n";
-        return semanticStage ? 1 : 2;  // 语义阶段 1=拒绝；AST 阶段 2=语法错误
+        return (semanticStage || opt.stage == "ir") ? 1 : 2;
     }
 
     rx::AstBuilder builder(parser);
@@ -92,6 +93,29 @@ int main(int argc, char** argv) {
         if (!sema.run()) {
             sema.diagnostics().report(std::cerr);
             return 1;
+        }
+        return 0;
+    }
+
+    if (opt.stage == "ir") {
+        // IR 前先跑语义，避免为非法程序生成 IR
+        rx::sema::Sema sema(crate);
+        if (!sema.run()) {
+            sema.diagnostics().report(std::cerr);
+            return 1;
+        }
+
+        if (!opt.output.empty()) {
+            std::ofstream out(opt.output);
+            if (!out) {
+                std::cerr << "cannot write " << opt.output << "\n";
+                return 1;
+            }
+            rx::ir::IrGen gen(out);
+            gen.emitCrate(crate);
+        } else {
+            rx::ir::IrGen gen(std::cout);
+            gen.emitCrate(crate);
         }
         return 0;
     }
